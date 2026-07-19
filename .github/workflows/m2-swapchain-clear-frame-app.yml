@@ -1,0 +1,123 @@
+name: Milestone 2 Swapchain Clear Frame
+
+on:
+  push:
+    branches:
+      - "agent/**"
+    paths:
+      - "SOURCE_PIN.env"
+      - "DEPENDENCY_TRIAL_PINS.env"
+      - "MOLTENVK_PIN.env"
+      - "cmake/host-tools/**"
+      - "overlays/gzselaco-ios/**"
+      - "overlays/zmusic-ios/**"
+      - "probes/libvpx-decoder-contract.cpp"
+      - "scripts/patch-gzselaco-ios-m0.py"
+      - "scripts/patch-gzselaco-vulkan-only-ios-m0.py"
+      - "scripts/patch-gzselaco-runtime-bootstrap-ios-m1.py"
+      - "scripts/patch-gzselaco-swapchain-ios-m2.py"
+      - "scripts/patch-zmusic-ios-m0.py"
+      - "scripts/m0-libvpx-ios-probe.sh"
+      - "scripts/m0-full-engine-configure-probe.sh"
+      - "scripts/m0-full-engine-compile-probe.sh"
+      - "scripts/m0-full-engine-app-artifact-probe.sh"
+      - "scripts/m0-controlled-mktemp.sh"
+      - "scripts/m2-swapchain-compile-probe.sh"
+      - "scripts/m2-swapchain-app-artifact-probe.sh"
+      - ".github/workflows/m2-swapchain-clear-frame-app.yml"
+  pull_request:
+    paths:
+      - "SOURCE_PIN.env"
+      - "DEPENDENCY_TRIAL_PINS.env"
+      - "MOLTENVK_PIN.env"
+      - "cmake/host-tools/**"
+      - "overlays/gzselaco-ios/**"
+      - "overlays/zmusic-ios/**"
+      - "probes/libvpx-decoder-contract.cpp"
+      - "scripts/patch-gzselaco-ios-m0.py"
+      - "scripts/patch-gzselaco-vulkan-only-ios-m0.py"
+      - "scripts/patch-gzselaco-runtime-bootstrap-ios-m1.py"
+      - "scripts/patch-gzselaco-swapchain-ios-m2.py"
+      - "scripts/patch-zmusic-ios-m0.py"
+      - "scripts/m0-libvpx-ios-probe.sh"
+      - "scripts/m0-full-engine-configure-probe.sh"
+      - "scripts/m0-full-engine-compile-probe.sh"
+      - "scripts/m0-full-engine-app-artifact-probe.sh"
+      - "scripts/m0-controlled-mktemp.sh"
+      - "scripts/m2-swapchain-compile-probe.sh"
+      - "scripts/m2-swapchain-app-artifact-probe.sh"
+      - ".github/workflows/m2-swapchain-clear-frame-app.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: m2-swapchain-clear-frame-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  arm64-iphoneos-swapchain-clear-frame:
+    name: full-engine Vulkan swapchain clear-frame app
+    runs-on: macos-15
+    timeout-minutes: 100
+    steps:
+      - name: Check out SelacoiOS
+        uses: actions/checkout@v4
+
+      - name: Validate Milestone 2 inputs
+        run: |
+          bash -n scripts/m0-full-engine-configure-probe.sh
+          bash -n scripts/m0-full-engine-compile-probe.sh
+          bash -n scripts/m0-full-engine-app-artifact-probe.sh
+          bash -n scripts/m0-controlled-mktemp.sh
+          bash -n scripts/m2-swapchain-compile-probe.sh
+          bash -n scripts/m2-swapchain-app-artifact-probe.sh
+          python3 -m py_compile scripts/patch-gzselaco-ios-m0.py
+          python3 -m py_compile scripts/patch-gzselaco-vulkan-only-ios-m0.py
+          python3 -m py_compile scripts/patch-gzselaco-runtime-bootstrap-ios-m1.py
+          python3 -m py_compile scripts/patch-gzselaco-swapchain-ios-m2.py
+          python3 -m py_compile scripts/patch-zmusic-ios-m0.py
+          command -v unzip
+          test -s overlays/gzselaco-ios/i_runtime_bootstrap.mm
+          test -s overlays/gzselaco-ios/i_swapchain_probe.mm
+
+      - name: Build and validate swapchain clear-frame app
+        run: |
+          real_mktemp="$(command -v mktemp)"
+          shim_dir="${GITHUB_WORKSPACE}/build/m2-swapchain-shims"
+          controlled_root="${GITHUB_WORKSPACE}/build/work/m2-swapchain-app/tmp"
+          mkdir -p "${shim_dir}" "${controlled_root}"
+          cp scripts/m0-controlled-mktemp.sh "${shim_dir}/mktemp"
+          chmod +x "${shim_dir}/mktemp"
+          export SELACOIOS_REAL_MKTEMP="${real_mktemp}"
+          export SELACOIOS_CONTROLLED_TMP_ROOT="${controlled_root}"
+          export PATH="${shim_dir}:${PATH}"
+          bash scripts/m2-swapchain-app-artifact-probe.sh
+
+      - name: Preserve swapchain evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selaco-m2-swapchain-clear-frame-evidence
+          path: build/evidence/m2-swapchain-app
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Preserve unsigned swapchain app
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selaco-m2-swapchain-clear-frame-unsigned-app
+          path: build/artifacts/m2-swapchain-app/Selaco-swapchain-clear-frame-unsigned-app.zip
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Preserve unsigned swapchain IPA
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selaco-m2-swapchain-clear-frame-unsigned-ipa
+          path: build/artifacts/m2-swapchain-app/Selaco-swapchain-clear-frame-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 14
