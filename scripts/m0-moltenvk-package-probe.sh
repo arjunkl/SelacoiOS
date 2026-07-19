@@ -24,7 +24,7 @@ for command_name in curl python3 tar shasum file xcrun; do
   fi
 done
 
-for required_var in MOLTENVK_REPOSITORY MOLTENVK_TAG MOLTENVK_ASSET_NAME; do
+for required_var in MOLTENVK_REPOSITORY MOLTENVK_TAG MOLTENVK_ASSET_NAME MOLTENVK_ASSET_SHA256; do
   if [[ -z "${!required_var:-}" ]]; then
     echo "error: ${required_var} is missing from MOLTENVK_PIN.env" >&2
     exit 2
@@ -103,51 +103,44 @@ if [[ -n "${api_digest}" && "${asset_sha256}" != "${api_digest}" ]]; then
   echo "error: downloaded asset hash ${asset_sha256} differs from GitHub release digest ${api_digest}" >&2
   exit 1
 fi
-if [[ -n "${MOLTENVK_ASSET_SHA256:-}" && "${asset_sha256}" != "${MOLTENVK_ASSET_SHA256}" ]]; then
+if [[ "${asset_sha256}" != "${MOLTENVK_ASSET_SHA256}" ]]; then
   echo "error: downloaded asset hash ${asset_sha256} differs from committed pin ${MOLTENVK_ASSET_SHA256}" >&2
   exit 1
 fi
 
-echo "== Extract and inspect iPhoneOS framework slice =="
+echo "== Extract and inspect iPhoneOS static-library slice =="
 tar -xf "${asset_tar}" -C "${extract_dir}"
-find "${extract_dir}" -maxdepth 7 -print | sed "s#${extract_dir}#.#" | sort > "${evidence_dir}/package-tree.txt"
+find "${extract_dir}" -maxdepth 8 -print | sed "s#${extract_dir}#.#" | sort > "${evidence_dir}/package-tree.txt"
 
 xcframework_path="$(find "${extract_dir}" -type d -name 'MoltenVK.xcframework' -path '*/static/*' -print -quit)"
-if [[ -z "${xcframework_path}" ]]; then
-  xcframework_path="$(find "${extract_dir}" -type d -name 'MoltenVK.xcframework' -print -quit)"
-fi
 if [[ -z "${xcframework_path}" || ! -d "${xcframework_path}" ]]; then
-  echo "error: MoltenVK.xcframework is absent from the release package" >&2
+  echo "error: static MoltenVK.xcframework is absent from the release package" >&2
   exit 1
 fi
 
-framework_path="$(find "${xcframework_path}" -type d -name 'MoltenVK.framework' -path '*ios-arm64*' ! -path '*simulator*' -print -quit)"
-if [[ -z "${framework_path}" || ! -d "${framework_path}" ]]; then
-  echo "error: physical-device ios-arm64 MoltenVK.framework slice is absent" >&2
+library_path="$(find "${xcframework_path}" -type f -name 'libMoltenVK.a' -path '*ios-arm64*' ! -path '*simulator*' -print -quit)"
+include_dir="$(find "${extract_dir}" -type d -path '*/MoltenVK/include' -print -quit)"
+vulkan_header="${include_dir}/vulkan/vulkan.h"
+if [[ -z "${library_path}" || ! -f "${library_path}" ]]; then
+  echo "error: physical-device ios-arm64 libMoltenVK.a slice is absent" >&2
+  exit 1
+fi
+if [[ -z "${include_dir}" || ! -f "${vulkan_header}" ]]; then
+  echo "error: release package has no shared vulkan/vulkan.h header" >&2
   exit 1
 fi
 
-framework_binary="${framework_path}/MoltenVK"
-vulkan_header="$(find "${framework_path}/Headers" -type f -path '*/vulkan/vulkan.h' -print -quit 2>/dev/null || true)"
-if [[ ! -f "${framework_binary}" ]]; then
-  echo "error: selected framework slice has no MoltenVK binary" >&2
-  exit 1
-fi
-if [[ -z "${vulkan_header}" || ! -f "${vulkan_header}" ]]; then
-  echo "error: selected framework slice has no vulkan/vulkan.h header" >&2
-  exit 1
-fi
-
-file "${framework_binary}" | tee "${evidence_dir}/framework-file.txt"
-xcrun lipo -info "${framework_binary}" | tee "${evidence_dir}/framework-architecture.txt"
-architecture_info="$(cat "${evidence_dir}/framework-architecture.txt")"
+file "${library_path}" | tee "${evidence_dir}/library-file.txt"
+xcrun lipo -info "${library_path}" | tee "${evidence_dir}/library-architecture.txt"
+architecture_info="$(cat "${evidence_dir}/library-architecture.txt")"
 if [[ "${architecture_info}" != *"arm64"* || "${architecture_info}" == *"x86_64"* ]]; then
-  echo "error: selected MoltenVK framework is not a physical-device arm64 binary" >&2
+  echo "error: selected MoltenVK library is not a physical-device arm64 binary" >&2
   exit 1
 fi
 
 xcframework_rel="${xcframework_path#${extract_dir}/}"
-framework_rel="${framework_path#${extract_dir}/}"
+library_rel="${library_path#${extract_dir}/}"
+include_rel="${include_dir#${extract_dir}/}"
 vulkan_header_rel="${vulkan_header#${extract_dir}/}"
 cat > "${evidence_dir}/probe-manifest.txt" <<MANIFEST
 repository=${MOLTENVK_REPOSITORY}
@@ -156,11 +149,12 @@ asset=${MOLTENVK_ASSET_NAME}
 asset_sha256=${asset_sha256}
 api_digest=${api_digest}
 xcframework_path=${xcframework_rel}
-framework_path=${framework_rel}
+library_path=${library_rel}
+include_dir=${include_rel}
 vulkan_header=${vulkan_header_rel}
 architecture=arm64
 platform=iphoneos
-linkage_preference=static
+linkage=static
 MANIFEST
 
 printf 'PASS\n' > "${evidence_dir}/result.txt"
