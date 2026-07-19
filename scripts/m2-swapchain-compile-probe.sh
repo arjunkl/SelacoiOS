@@ -62,6 +62,38 @@ if text.count(old) != 1:
         "Milestone 0 compile probe no longer exposes the expected Vulkan patch insertion"
     )
 text = text.replace(old, new, 1)
+
+configure_read_marker = 'text = source_path.read_text(encoding="utf-8")\n\n'
+if text.count(configure_read_marker) != 1:
+    raise SystemExit("Milestone 0 compile probe configure-reader marker changed")
+
+dynamic_framework_transform = r'''dynamic_anchor = 'moltenvk_include="$(find "${moltenvk_extract}" -type d -path \'*/MoltenVK/include\' -print -quit)"\n'
+if text.count(dynamic_anchor) != 1:
+    raise SystemExit("configure probe MoltenVK include resolution changed")
+text = text.replace(
+    dynamic_anchor,
+    dynamic_anchor
+    + 'moltenvk_dynamic_framework="$(find "${moltenvk_extract}" -type d -name \'MoltenVK.framework\' -path \'*dynamic*\' -path \'*ios-arm64*\' ! -path \'*simulator*\' -print -quit)"\n',
+    1,
+)
+
+moltenvk_argument = '  -DMOLTENVK_LIBRARY="${moltenvk_library}" \\\n'
+if text.count(moltenvk_argument) != 1:
+    raise SystemExit("configure probe MoltenVK CMake argument changed")
+text = text.replace(
+    moltenvk_argument,
+    moltenvk_argument
+    + '  -DMOLTENVK_DYNAMIC_FRAMEWORK="${moltenvk_dynamic_framework}" \\\n',
+    1,
+)
+
+'''
+text = text.replace(
+    configure_read_marker,
+    configure_read_marker + dynamic_framework_transform,
+    1,
+)
+
 text = text.replace(
     "full-engine-compile-probe:",
     "swapchain-compile-probe:",
