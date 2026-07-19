@@ -6,6 +6,8 @@ SelacoiOS is an experimental, community-driven effort to investigate and build a
 
 The project is in **Milestone 0: static feasibility and architecture validation**. No claim of a working iOS build, successful launch, gameplay, packaging, or device validation should be inferred until reproducible evidence is committed or linked from this repository.
 
+The active source revision and automated assumptions are recorded in [`SOURCE_PIN.env`](SOURCE_PIN.env). The bootstrap CI checks the repository asset boundary and audits that exact upstream revision.
+
 ## Legal and asset boundary
 
 This repository must not contain Selaco's proprietary game data, including `Selaco.ipk3`, commercial artwork, audio, maps, videos, or other assets extracted from a purchased installation.
@@ -21,5 +23,10 @@ This project is not affiliated with or endorsed by Altered Orbit Studios, Fulqru
 - Input: external controller first; touch and gyro after engine viability is proven
 - Data: user-imported `Selaco.ipk3`; never committed or bundled
 - Delivery: private development IPA during validation; no public distribution assumptions
+
+## Project evidence
+
+- [`docs/PROJECT_COMMAND_CENTRE.md`](docs/PROJECT_COMMAND_CENTRE.md): scope, evidence status, milestone gates, and stop conditions
+- [`docs/M0_DEPENDENCY_AND_PLATFORM_AUDIT.md`](docs/M0_DEPENDENCY_AND_PLATFORM_AUDIT.md): initial dependency closure and Apple-versus-iOS source audit
 
 Development work proceeds through evidence-gated milestones rather than broad speculative implementation.
