@@ -18,8 +18,15 @@ workdir="$(mktemp -d)"
 cleanup() {
   rm -rf "${workdir}"
 }
+fail_probe() {
+  local code="$1"
+  local line="$2"
+  printf 'FAIL\n' > "${evidence_dir}/result.txt"
+  echo "full-engine-configure-probe: FAIL at line ${line} (exit ${code})"
+  exit "${code}"
+}
 trap cleanup EXIT
-trap 'code=$?; printf "FAIL\n" > "${evidence_dir}/result.txt"; echo "full-engine-configure-probe: FAIL at line ${LINENO} (exit ${code})"; exit ${code}' ERR
+trap 'fail_probe $? ${LINENO}' ERR
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
   echo "error: the full-engine iPhoneOS configure probe requires macOS and Xcode" >&2
@@ -37,7 +44,8 @@ platform_stub="${repo_root}/overlays/gzselaco-ios/i_platform_stub.cpp"
 gzselaco_patcher="${repo_root}/scripts/patch-gzselaco-ios-m0.py"
 zmusic_patcher="${repo_root}/scripts/patch-zmusic-ios-m0.py"
 zmusic_stub="${repo_root}/overlays/zmusic-ios/music_fluidsynth_stub.cpp"
-for required_file in "${platform_stub}" "${gzselaco_patcher}" "${zmusic_patcher}" "${zmusic_stub}"; do
+libvpx_probe="${repo_root}/scripts/m0-libvpx-ios-probe.sh"
+for required_file in "${platform_stub}" "${gzselaco_patcher}" "${zmusic_patcher}" "${zmusic_stub}" "${libvpx_probe}"; do
   if [[ ! -f "${required_file}" ]]; then
     echo "error: committed configure-probe input is missing: ${required_file}" >&2
     exit 2
@@ -49,9 +57,10 @@ zmusic_dir="${workdir}/ZMusic"
 host_build_dir="${workdir}/host-tools"
 zmusic_build_dir="${workdir}/zmusic-build"
 engine_build_dir="${workdir}/engine-build"
+vpx_include_root="${workdir}/libvpx-include"
 moltenvk_tar="${workdir}/${MOLTENVK_ASSET_NAME}"
 moltenvk_extract="${workdir}/moltenvk"
-mkdir -p "${moltenvk_extract}"
+mkdir -p "${moltenvk_extract}" "${vpx_include_root}/vpx"
 
 printf '== Host and SDK environment ==\n'
 sw_vers
@@ -134,6 +143,16 @@ if [[ -z "${zmusic_library}" || ! -f "${zmusic_library}" ]]; then
   exit 1
 fi
 
+printf '== Build pinned decoder-only libvpx dependency ==\n'
+bash "${libvpx_probe}"
+vpx_library="${repo_root}/build/artifacts/m0-libvpx-ios/libvpx-ios-arm64.a"
+vpx_headers="${repo_root}/build/artifacts/m0-libvpx-ios/vpx-headers"
+if [[ ! -f "${vpx_library}" || ! -d "${vpx_headers}" ]]; then
+  echo "error: proven libvpx probe did not preserve its library and headers" >&2
+  exit 1
+fi
+cp -R "${vpx_headers}/." "${vpx_include_root}/vpx/"
+
 printf '== Resolve pinned MoltenVK iPhoneOS static library ==\n'
 moltenvk_url="https://github.com/${MOLTENVK_REPOSITORY}/releases/download/${MOLTENVK_TAG}/${MOLTENVK_ASSET_NAME}"
 curl --fail --silent --show-error --location --retry 3 "${moltenvk_url}" --output "${moltenvk_tar}"
@@ -151,6 +170,7 @@ if [[ -z "${moltenvk_library}" || ! -f "${moltenvk_library}" || -z "${moltenvk_i
 fi
 
 printf '== Configure full GZSelaco target for arm64 iPhoneOS ==\n'
+trap - ERR
 set +e
 cmake \
   -G Xcode \
@@ -168,6 +188,8 @@ cmake \
   -DIMPORT_EXECUTABLES="${import_file}" \
   -DZMUSIC_INCLUDE_DIR="${zmusic_dir}/include" \
   -DZMUSIC_LIBRARIES="${zmusic_library}" \
+  -DVPX_INCLUDE_DIR="${vpx_include_root}" \
+  -DVPX_LIBRARIES="${vpx_library}" \
   -DMOLTENVK_LIBRARY="${moltenvk_library}" \
   -DMOLTENVK_INCLUDE_DIR="${moltenvk_include}" \
   -DNO_OPENAL=ON \
@@ -185,6 +207,7 @@ cmake \
   2>&1 | tee "${evidence_dir}/engine-configure.log"
 configure_status=${PIPESTATUS[0]}
 set -e
+trap 'fail_probe $? ${LINENO}' ERR
 
 if [[ -f "${engine_build_dir}/CMakeCache.txt" ]]; then
   cp "${engine_build_dir}/CMakeCache.txt" "${evidence_dir}/engine-CMakeCache.txt"
@@ -202,17 +225,18 @@ if ! grep -Fq 'Found ZMusic:' "${evidence_dir}/engine-configure.log"; then
   echo "error: full engine did not consume the pinned arm64 ZMusic library" >&2
   exit 1
 fi
+if ! grep -Fq 'Found VPX:' "${evidence_dir}/engine-configure.log"; then
+  echo "error: full engine did not consume the pinned arm64 libvpx library" >&2
+  exit 1
+fi
 
-outcome=""
-if [[ "${configure_status}" == "0" ]]; then
-  outcome="FULL_CONFIGURE_PASS"
-elif grep -Fq 'Could not find libvpx' "${evidence_dir}/engine-configure.log"; then
-  outcome="CLASSIFIED_LIBVPX_BOUNDARY"
-else
-  echo "error: full-engine configure failed outside the approved classified boundary" >&2
+if [[ "${configure_status}" != "0" ]]; then
+  echo "error: full-engine configure reached a new unclassified boundary" >&2
+  grep -A4 -B1 'CMake Error' "${evidence_dir}/engine-configure.log" | head -n 80 > "${evidence_dir}/first-configure-error.txt" || true
   exit "${configure_status}"
 fi
 
+outcome="FULL_CONFIGURE_PASS"
 echo "outcome=${outcome}" | tee "${evidence_dir}/outcome.txt"
 cat > "${evidence_dir}/probe-manifest.txt" <<MANIFEST
 engine_repository=${GZSELACO_REPOSITORY}
@@ -220,6 +244,8 @@ engine_commit=${resolved_engine_commit}
 engine_patcher_sha256=${gzselaco_patcher_sha256}
 zmusic_repository=${ZMUSIC_REPOSITORY}
 zmusic_commit=${resolved_zmusic_commit}
+libvpx_repository=${LIBVPX_REPOSITORY}
+libvpx_commit=${LIBVPX_COMMIT}
 moltenvk_tag=${MOLTENVK_TAG}
 moltenvk_asset_sha256=${moltenvk_sha256}
 host_os=$(sw_vers -productVersion)
@@ -231,11 +257,13 @@ host_tools=imported_native_macos
 platform_source_set=dedicated_ios
 cocoa_backend=excluded
 sdl_desktop_backend=excluded
+discord_rpc=excluded
 openal=disabled
 vm_jit=disabled_by_arm64
 vulkan=enabled
 moltenvk=static_pinned
 zmusic=static_pinned_without_fluidsynth
+libvpx=static_decoder_only_pinned
 configure_status=${configure_status}
 outcome=${outcome}
 compile=not_started
