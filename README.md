@@ -4,27 +4,30 @@ SelacoiOS is an experimental, community-driven effort to investigate and build a
 
 ## Current status
 
-The project remains in **Milestone 0: static feasibility and architecture validation**.
+The project has completed its principal **Milestone 0 compile, link, and bundle-feasibility gates** and is entering bounded physical-runtime bootstrap work.
 
 Verified so far:
 
 - exact GZSelaco source pin and proprietary-asset boundary;
 - native macOS host tools;
-- a bounded arm64 iPhoneOS core compile;
 - official MoltenVK iOS package pin and SHA-256 verification;
-- an unsigned arm64 iPhoneOS `.app` link boundary;
-- Vulkan instance and `CAMetalLayer` surface creation paths compiled and linked through MoltenVK;
 - a static arm64 iPhoneOS ZMusic compatibility build and GZSelaco-facing API contract, with desktop-only FluidSynth and hardware CoreMIDI paths explicitly excluded;
-- a decoder-only static arm64 iPhoneOS libvpx build with VP8/VP9 decoder symbols and an iOS link contract, while encoder code remains excluded.
+- a decoder-only static arm64 iPhoneOS libvpx build with VP8/VP9 decoder symbols and an iOS link contract, while encoder code remains excluded;
+- a dedicated iOS platform source set with desktop Cocoa, desktop SDL, Discord RPC, VM JIT, dynamic OpenAL, and desktop OpenGL excluded;
+- a native iOS framebuffer contract and bounded sandbox-path, timing, console, and process runtime closure;
+- Vulkan-only compilation of the complete selected GZSelaco translation-unit graph for physical-device arm64 iPhoneOS;
+- successful full application linkage against pinned static MoltenVK, ZMusic, libvpx, and internal engine libraries;
+- a preserved unsigned `Selaco.app` with valid iPhoneOS bundle metadata, arm64-only Mach-O output, minimum iOS 15.0, and only Apple/system dynamic dependencies.
 
 Not yet verified:
 
 - physical-device launch or execution;
-- Vulkan instance or surface success on A18 Pro;
-- swapchain creation;
-- full GZSelaco renderer linkage;
-- menu, game-data import, controls, audio output, movie playback, animated VPX textures, saves, or gameplay;
-- IPA packaging, signing, installation, or distribution.
+- a live UIKit lifecycle for the full-engine application;
+- Vulkan instance or Metal-surface creation by the full engine on A18 Pro;
+- swapchain creation or frame presentation;
+- Selaco game-data import;
+- menu startup, controls, audio output, movie playback, animated VPX textures, saves, scripting behaviour, gameplay, or performance;
+- signing, IPA installation, TestFlight, App Store, or public distribution readiness.
 
 The active engine and renderer pins are recorded in [`SOURCE_PIN.env`](SOURCE_PIN.env) and [`MOLTENVK_PIN.env`](MOLTENVK_PIN.env). Explicit dependency compatibility trials are recorded separately in [`DEPENDENCY_TRIAL_PINS.env`](DEPENDENCY_TRIAL_PINS.env).
 
@@ -43,7 +46,7 @@ This project is not affiliated with or endorsed by Altered Orbit Studios, Fulqru
 - Surface: `VK_EXT_metal_surface` over an iOS-owned `CAMetalLayer`
 - Input: external controller first; touch and gyro after engine viability is proven
 - Data: user-imported `Selaco.ipk3`; never committed or bundled
-- Distribution: no public-release assumptions; current Milestone 0 does not authorize packaging or installation
+- Distribution: no public-release assumptions; current work does not authorize signed packaging or installation
 
 ## Project evidence
 
@@ -52,5 +55,6 @@ This project is not affiliated with or endorsed by Altered Orbit Studios, Fulqru
 - [`docs/M0_VULKAN_COMPATIBILITY_INVENTORY.md`](docs/M0_VULKAN_COMPATIBILITY_INVENTORY.md): GZSelaco requirements compared with MoltenVK v1.4.1
 - [`docs/M0_ZMUSIC_IOS_PROBE.md`](docs/M0_ZMUSIC_IOS_PROBE.md): successful static ZMusic iPhoneOS trial, adaptations, limitations, and evidence
 - [`docs/M0_LIBVPX_IOS_PROBE.md`](docs/M0_LIBVPX_IOS_PROBE.md): successful decoder-only libvpx iPhoneOS trial and evidence
+- [`docs/M0_FULL_ENGINE_APP_ARTIFACT.md`](docs/M0_FULL_ENGINE_APP_ARTIFACT.md): successful complete engine compile, link, bundle validation, and unsigned app artifact evidence
 
 Development proceeds through evidence-gated milestones rather than broad speculative implementation.
