@@ -3,6 +3,7 @@
 #import <UIKit/UIKit.h>
 
 #include "SelacoEngineBoundary.h"
+#include "SelacoVulkanBoundary.h"
 
 @interface SelacoShellViewController : UIViewController <MTKViewDelegate>
 @property(nonatomic, strong) id<MTLCommandQueue> commandQueue;
@@ -24,7 +25,16 @@
 
     NSString *signature = [NSString stringWithUTF8String:SelacoIOSGameSignature()];
     NSString *engine = [NSString stringWithUTF8String:SelacoIOSEngineVersion()];
-    NSString *bridgeStatus = SelacoIOSEngineSelfTest() ? @"PASS" : @"FAIL";
+    NSString *engineBridgeStatus = SelacoIOSEngineSelfTest() ? @"PASS" : @"FAIL";
+
+    const unsigned int vulkanVersion = SelacoIOSVulkanCompiledVersion();
+    const unsigned int vulkanMajor = (vulkanVersion >> 22U) & 0x7FU;
+    const unsigned int vulkanMinor = (vulkanVersion >> 12U) & 0x3FFU;
+    const unsigned int vulkanPatch = vulkanVersion & 0xFFFU;
+    const int vulkanResult = SelacoIOSVulkanSelfTest();
+    NSString *vulkanStatus = vulkanResult == 1
+        ? @"PASS"
+        : [NSString stringWithFormat:@"FAIL (%d)", vulkanResult];
 
     UILabel *status = [[UILabel alloc] initWithFrame:CGRectZero];
     status.translatesAutoresizingMaskIntoConstraints = NO;
@@ -33,10 +43,14 @@
     status.textColor = UIColor.whiteColor;
     status.font = [UIFont monospacedSystemFontOfSize:18.0 weight:UIFontWeightSemibold];
     status.text = [NSString stringWithFormat:
-        @"SelacoiOS\n%@ · %@\nPinned engine bridge: %@\nMilestone 0 platform shell",
+        @"SelacoiOS\n%@ · %@\nPinned engine bridge: %@\nMoltenVK Vulkan %u.%u.%u: %@\nMilestone 0 platform shell",
         signature,
         engine,
-        bridgeStatus];
+        engineBridgeStatus,
+        vulkanMajor,
+        vulkanMinor,
+        vulkanPatch,
+        vulkanStatus];
     [metalView addSubview:status];
 
     [NSLayoutConstraint activateConstraints:@[
