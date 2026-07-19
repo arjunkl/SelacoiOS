@@ -13,6 +13,7 @@ on:
       - "overlays/zmusic-ios/**"
       - "probes/libvpx-decoder-contract.cpp"
       - "scripts/patch-gzselaco-ios-m0.py"
+      - "scripts/patch-gzselaco-vulkan-only-ios-m0.py"
       - "scripts/patch-zmusic-ios-m0.py"
       - "scripts/m0-libvpx-ios-probe.sh"
       - "scripts/m0-full-engine-configure-probe.sh"
@@ -28,6 +29,7 @@ on:
       - "overlays/zmusic-ios/**"
       - "probes/libvpx-decoder-contract.cpp"
       - "scripts/patch-gzselaco-ios-m0.py"
+      - "scripts/patch-gzselaco-vulkan-only-ios-m0.py"
       - "scripts/patch-zmusic-ios-m0.py"
       - "scripts/m0-libvpx-ios-probe.sh"
       - "scripts/m0-full-engine-configure-probe.sh"
@@ -57,6 +59,7 @@ jobs:
           bash -n scripts/m0-full-engine-compile-probe.sh
           bash -n scripts/m0-libvpx-ios-probe.sh
           python3 -m py_compile scripts/patch-gzselaco-ios-m0.py
+          python3 -m py_compile scripts/patch-gzselaco-vulkan-only-ios-m0.py
           python3 -m py_compile scripts/patch-zmusic-ios-m0.py
 
       - name: Compile until the first classified source boundary
