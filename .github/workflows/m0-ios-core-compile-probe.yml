@@ -9,12 +9,6 @@ on:
       - "cmake/ios-core-probe/**"
       - "scripts/m0-ios-core-compile-probe.sh"
       - ".github/workflows/m0-ios-core-compile-probe.yml"
-  pull_request:
-    paths:
-      - "SOURCE_PIN.env"
-      - "cmake/ios-core-probe/**"
-      - "scripts/m0-ios-core-compile-probe.sh"
-      - ".github/workflows/m0-ios-core-compile-probe.yml"
   workflow_dispatch:
 
 permissions:
