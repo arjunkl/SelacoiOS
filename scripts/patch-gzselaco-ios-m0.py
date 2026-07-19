@@ -142,12 +142,12 @@ def main() -> int:
         'elseif( APPLE )\n\tif( OSX_COCOA_BACKEND )\n',
         'elseif( CMAKE_SYSTEM_NAME STREQUAL "iOS" )\n'
         '\tmessage(STATUS "SelacoiOS: selected dedicated iOS platform source set")\n'
-        '\tset( SYSTEM_SOURCES_DIR common/platform/ios )\n'
+        '\tset( SYSTEM_SOURCES_DIR common/platform/ios common/platform/posix )\n'
         '\tset( SYSTEM_SOURCES ${PLAT_IOS_SOURCES} )\n'
         '\tset( OTHER_SYSTEM_SOURCES ${PLAT_WIN32_SOURCES} ${PLAT_POSIX_SOURCES} ${PLAT_SDL_SOURCES} ${PLAT_OSX_SOURCES} ${PLAT_COCOA_SOURCES} ${PLAT_UNIX_SOURCES} )\n'
         'elseif( APPLE )\n'
         '\tif( OSX_COCOA_BACKEND )\n',
-        "select iOS before the desktop Apple source branch",
+        "select iOS sources with shared POSIX platform headers",
     )
     replace_once(
         src_cmake,
