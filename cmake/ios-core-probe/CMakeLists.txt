@@ -31,6 +31,7 @@ foreach(required_path
     src/common/utility/TSQueue.h
     src/common/engine/stats.h
     src/common/filesystem/include/fs_filesystem.h
+    src/common/thirdparty/superfasthash.h
     libraries/bzip2/CMakeLists.txt
     libraries/lzma/CMakeLists.txt
     libraries/miniz/CMakeLists.txt)
@@ -61,9 +62,14 @@ add_library(gzselaco-ios-core-probe STATIC
 target_include_directories(gzselaco-ios-core-probe PRIVATE
   "${GZSELACO_SOURCE_DIR}/src/common/utility"
   "${GZSELACO_SOURCE_DIR}/src/common/engine"
-  "${GZSELACO_SOURCE_DIR}/src/common/filesystem/include")
+  "${GZSELACO_SOURCE_DIR}/src/common/filesystem/include"
+  "${GZSELACO_SOURCE_DIR}/src/common/thirdparty")
 
+# These aliases are configured by the upstream root build on non-Windows
+# platforms. Reproduce that existing build context for this isolated probe.
 target_compile_definitions(gzselaco-ios-core-probe PRIVATE
+  stricmp=strcasecmp
+  strnicmp=strncasecmp
   HAVE_VM_JIT=0
   NO_SEND_STATS=1)
 
