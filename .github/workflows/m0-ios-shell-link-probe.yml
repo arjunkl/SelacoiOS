@@ -6,12 +6,14 @@ on:
       - "agent/**"
     paths:
       - "SOURCE_PIN.env"
+      - "MOLTENVK_PIN.env"
       - "platform/ios-shell/**"
       - "scripts/m0-ios-shell-link-probe.sh"
       - ".github/workflows/m0-ios-shell-link-probe.yml"
   pull_request:
     paths:
       - "SOURCE_PIN.env"
+      - "MOLTENVK_PIN.env"
       - "platform/ios-shell/**"
       - "scripts/m0-ios-shell-link-probe.sh"
       - ".github/workflows/m0-ios-shell-link-probe.yml"
@@ -26,7 +28,7 @@ concurrency:
 
 jobs:
   arm64-iphoneos-shell:
-    name: unsigned arm64 iPhoneOS app shell
+    name: unsigned arm64 iPhoneOS app shell with MoltenVK
     runs-on: macos-15
     timeout-minutes: 30
     steps:
