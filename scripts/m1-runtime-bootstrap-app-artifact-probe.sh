@@ -82,6 +82,43 @@ text = text.replace(
     1,
 )
 
+validation_marker = "printf '== Validate full-engine app bundle ==\\n'\n"
+if text.count(validation_marker) != 1:
+    raise SystemExit("Milestone 0 app probe validation marker changed")
+plist_closure = r'''python3 - "${info_plist}" <<'RUNTIME_PLIST'
+from __future__ import annotations
+
+import pathlib
+import plistlib
+import sys
+
+plist_path = pathlib.Path(sys.argv[1])
+with plist_path.open("rb") as stream:
+    info = plistlib.load(stream)
+
+info.update({
+    "CFBundleIdentifier": "am.arjunkl.selacoios.runtime.m1",
+    "CFBundleName": "SelacoiOS",
+    "CFBundleDisplayName": "SelacoiOS",
+    "CFBundleShortVersionString": "0.1.0",
+    "CFBundleVersion": "1",
+    "UIFileSharingEnabled": True,
+    "LSSupportsOpeningDocumentsInPlace": True,
+    "UIRequiresFullScreen": True,
+    "UISupportedInterfaceOrientations": [
+        "UIInterfaceOrientationLandscapeLeft",
+        "UIInterfaceOrientationLandscapeRight",
+    ],
+    "UILaunchScreen": {},
+})
+
+with plist_path.open("wb") as stream:
+    plistlib.dump(info, stream, fmt=plistlib.FMT_XML, sort_keys=True)
+RUNTIME_PLIST
+
+'''
+text = text.replace(validation_marker, plist_closure + validation_marker, 1)
+
 driver_path.write_text(text, encoding="utf-8")
 driver_path.chmod(0o755)
 PY
