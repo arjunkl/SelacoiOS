@@ -137,14 +137,14 @@ if ! grep -q 'platform IOS' "${evidence_dir}/mach-build-version.txt"; then
   exit 1
 fi
 
-for framework in UIKit Metal MetalKit QuartzCore Foundation; do
+for framework in UIKit CoreGraphics Metal MetalKit QuartzCore Foundation; do
   if ! grep -q "/${framework}\.framework/${framework}" "${evidence_dir}/linked-libraries.txt"; then
     echo "error: expected ${framework} framework linkage is absent" >&2
     exit 1
   fi
 done
 
-for symbol in _SelacoIOSGameSignature _SelacoIOSEngineVersion _SelacoIOSQueueSelfTest; do
+for symbol in _SelacoIOSGameSignature _SelacoIOSEngineVersion _SelacoIOSEngineSelfTest; do
   if ! grep -q "${symbol}" "${evidence_dir}/global-symbols.txt"; then
     echo "error: pinned-engine bridge symbol is absent: ${symbol}" >&2
     exit 1
@@ -183,6 +183,7 @@ app=${app_path}
 executable=${executable_path}
 signed=no
 renderer_surface=MetalKit
+engine_bridge=GZSelaco_SuperFastHashI
 engine_runtime=not_started
 moltenvk=not_integrated
 sdl=not_integrated
