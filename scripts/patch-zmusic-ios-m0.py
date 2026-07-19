@@ -85,6 +85,12 @@ def main() -> int:
         "endif()\n",
         "make FluidSynth linkage conditional",
     )
+    replace_once(
+        source_cmake,
+        "elseif(APPLE)\n",
+        'elseif(APPLE AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")\n',
+        "exclude the macOS CoreMIDI hardware backend from iOS",
+    )
 
     stub_destination = root / "source" / "mididevices" / "music_fluidsynth_stub.cpp"
     shutil.copyfile(stub_source, stub_destination)
