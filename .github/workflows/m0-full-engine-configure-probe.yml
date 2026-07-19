@@ -17,20 +17,6 @@ on:
       - "scripts/m0-libvpx-ios-probe.sh"
       - "scripts/m0-full-engine-configure-probe.sh"
       - ".github/workflows/m0-full-engine-configure-probe.yml"
-  pull_request:
-    paths:
-      - "SOURCE_PIN.env"
-      - "DEPENDENCY_TRIAL_PINS.env"
-      - "MOLTENVK_PIN.env"
-      - "cmake/host-tools/**"
-      - "overlays/gzselaco-ios/**"
-      - "overlays/zmusic-ios/**"
-      - "probes/libvpx-decoder-contract.cpp"
-      - "scripts/patch-gzselaco-ios-m0.py"
-      - "scripts/patch-zmusic-ios-m0.py"
-      - "scripts/m0-libvpx-ios-probe.sh"
-      - "scripts/m0-full-engine-configure-probe.sh"
-      - ".github/workflows/m0-full-engine-configure-probe.yml"
   workflow_dispatch:
 
 permissions:
