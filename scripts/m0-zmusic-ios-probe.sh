@@ -24,7 +24,7 @@ if [[ "$(uname -s)" != "Darwin" ]]; then
   exit 2
 fi
 
-for command_name in git cmake xcrun xcodebuild file nm shasum ditto python3; do
+for command_name in git cmake xcrun xcodebuild file nm shasum ditto; do
   if ! command -v "${command_name}" >/dev/null 2>&1; then
     echo "error: required command is unavailable: ${command_name}" >&2
     exit 2
@@ -40,14 +40,17 @@ done
 
 source_dir="${workdir}/ZMusic"
 build_dir="${workdir}/build"
-patcher="${repo_root}/scripts/patch-zmusic-ios-m0.py"
+patch_file="${repo_root}/patches/zmusic-ios-m0.patch"
+stub_source="${repo_root}/overlays/zmusic-ios/music_fluidsynth_stub.cpp"
 contract_source="${repo_root}/probes/zmusic-api-contract.cpp"
 contract_object="${artifact_dir}/zmusic-api-contract.o"
 
-if [[ ! -f "${patcher}" || ! -f "${contract_source}" ]]; then
-  echo "error: committed ZMusic patcher or API contract is missing" >&2
-  exit 2
-fi
+for required_file in "${patch_file}" "${stub_source}" "${contract_source}"; do
+  if [[ ! -f "${required_file}" ]]; then
+    echo "error: committed probe input is missing: ${required_file}" >&2
+    exit 2
+  fi
+done
 
 echo "== Host and SDK environment =="
 sw_vers
@@ -69,18 +72,18 @@ if [[ "${resolved_commit}" != "${ZMUSIC_COMMIT}" ]]; then
   exit 1
 fi
 
-python3 "${patcher}" "${source_dir}"
+git -C "${source_dir}" apply --check "${patch_file}"
+git -C "${source_dir}" apply "${patch_file}"
+cp "${stub_source}" "${source_dir}/source/mididevices/music_fluidsynth_stub.cpp"
 git -C "${source_dir}" diff --check
 git -C "${source_dir}" diff --binary > "${evidence_dir}/applied-zmusic-ios.patch"
-patcher_sha256="$(shasum -a 256 "${patcher}" | awk '{print $1}')"
-echo "patcher_sha256=${patcher_sha256}" | tee "${evidence_dir}/patcher-sha256.txt"
+patch_sha256="$(shasum -a 256 "${patch_file}" | awk '{print $1}')"
+stub_sha256="$(shasum -a 256 "${stub_source}" | awk '{print $1}')"
+echo "patch_sha256=${patch_sha256}" | tee "${evidence_dir}/patch-sha256.txt"
+echo "stub_sha256=${stub_sha256}" | tee "${evidence_dir}/stub-sha256.txt"
 
 if ! grep -Fq "VERSION ${ZMUSIC_PROJECT_VERSION}" "${source_dir}/CMakeLists.txt"; then
   echo "error: pinned ZMusic source does not declare expected project version ${ZMUSIC_PROJECT_VERSION}" >&2
-  exit 1
-fi
-if ! grep -Fq 'option(ZMUSIC_ENABLE_FLUIDSYNTH' "${source_dir}/thirdparty/CMakeLists.txt"; then
-  echo "error: deterministic iOS patch did not add the FluidSynth policy switch" >&2
   exit 1
 fi
 
@@ -95,7 +98,7 @@ cmake \
   -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0 \
   -DBUILD_SHARED_LIBS=OFF \
   -DZMUSIC_INSTALL=OFF \
-  -DZMUSIC_ENABLE_FLUIDSYNTH=OFF \
+  -DZMUSIC_DISABLE_FLUIDSYNTH=ON \
   -DDYN_SNDFILE=OFF \
   -DDYN_MPG123=OFF \
   -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO \
@@ -143,6 +146,11 @@ for symbol in \
   fi
 done
 
+if ! grep -q '_CreateFluidSynthMIDIDevice' "${evidence_dir}/library-global-symbols.txt"; then
+  echo "error: disabled FluidSynth null factory is absent" >&2
+  exit 1
+fi
+
 echo "== Compile GZSelaco-facing ZMusic API contract =="
 xcrun --sdk iphoneos clang++ \
   -std=c++17 \
@@ -173,7 +181,8 @@ repository=${ZMUSIC_REPOSITORY}
 commit=${resolved_commit}
 project_version=${ZMUSIC_PROJECT_VERSION}
 trial_pin=yes
-patcher_sha256=${patcher_sha256}
+patch_sha256=${patch_sha256}
+stub_sha256=${stub_sha256}
 host_os=$(sw_vers -productVersion)
 xcode=$(xcodebuild -version | tr '\n' ' ')
 iphoneos_sdk=${iphoneos_sdk_version}
@@ -182,8 +191,8 @@ architecture=arm64
 linkage=static
 dynamic_sndfile=off
 dynamic_mpg123=off
-fluidsynth=off_pending_ios_glib_strategy
-zmusic_target=compiled
+fluidsynth=disabled_null_factory
+full_zmusic_target=compiled
 api_contract=compiled
 physical_execution=not_applicable
 MANIFEST
