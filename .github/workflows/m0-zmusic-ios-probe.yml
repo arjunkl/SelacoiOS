@@ -6,14 +6,14 @@ on:
       - "agent/**"
     paths:
       - "DEPENDENCY_TRIAL_PINS.env"
-      - "patches/zmusic-ios-m0.patch"
+      - "scripts/patch-zmusic-ios-m0.py"
       - "probes/zmusic-api-contract.cpp"
       - "scripts/m0-zmusic-ios-probe.sh"
       - ".github/workflows/m0-zmusic-ios-probe.yml"
   pull_request:
     paths:
       - "DEPENDENCY_TRIAL_PINS.env"
-      - "patches/zmusic-ios-m0.patch"
+      - "scripts/patch-zmusic-ios-m0.py"
       - "probes/zmusic-api-contract.cpp"
       - "scripts/m0-zmusic-ios-probe.sh"
       - ".github/workflows/m0-zmusic-ios-probe.yml"
@@ -28,7 +28,7 @@ concurrency:
 
 jobs:
   arm64-iphoneos-zmusic:
-    name: full static ZMusic arm64 iPhoneOS
+    name: static ZMusic arm64 iPhoneOS without FluidSynth
     runs-on: macos-15
     timeout-minutes: 45
     steps:
@@ -38,7 +38,7 @@ jobs:
       - name: Validate probe inputs
         run: |
           bash -n scripts/m0-zmusic-ios-probe.sh
-          test -s patches/zmusic-ios-m0.patch
+          python3 -m py_compile scripts/patch-zmusic-ios-m0.py
           test -s probes/zmusic-api-contract.cpp
 
       - name: Build ZMusic and compile API contract
