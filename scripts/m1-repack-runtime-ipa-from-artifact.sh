@@ -141,7 +141,7 @@ echo "unsigned=yes" >> "${evidence_dir}/codesign.txt"
 runtime_ipa="${output_dir}/Selaco-runtime-bootstrap-unsigned.ipa"
 (
   cd "${workdir}/stage"
-  ditto -c -k --sequesterRsrc Payload "${runtime_ipa}"
+  ditto -c -k --sequesterRsrc --keepParent Payload "${runtime_ipa}"
 )
 
 unzip -Z1 "${runtime_ipa}" > "${evidence_dir}/ipa-contents.txt"
