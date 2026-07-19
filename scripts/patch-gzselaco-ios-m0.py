@@ -212,6 +212,17 @@ def main() -> int:
         "remove desktop libdl linkage from iOS ZVulkan",
     )
 
+    richpresence_source = root / "src" / "common" / "thirdparty" / "richpresence.cpp"
+    richpresence_source.write_text(
+        "// SelacoiOS Milestone 0 null Discord rich-presence backend.\n"
+        "// The internal engine API is retained while the desktop Discord RPC\n"
+        "// dependency and network-facing integration remain excluded.\n\n"
+        "void I_UpdateDiscordPresence(bool, const char*, const char*, const char*)\n"
+        "{\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
     destination = root / "src" / "common" / "platform" / "ios" / "i_platform_stub.cpp"
     destination.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(platform_stub, destination)
