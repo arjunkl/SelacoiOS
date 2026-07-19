@@ -27,6 +27,10 @@ No public App Store, TestFlight, commercial, or redistributable release is curre
 - GZSelaco source is publicly accessible at `TheCockatrice/GZSelaco`.
 - The exact Milestone 0 source revision is recorded in `SOURCE_PIN.env`.
 - The pinned source declares C++17, a cross-compilation switch, Vulkan support, an x86_64-only default VM JIT gate, a GZDoom 4.13 engine baseline, and the `SELACO` game signature.
+- Milestone 0 static gates passed for source pin `7543afd533ea7c60ed61d2b6ad7518656d77097b` in workflow run `29685158535`.
+- Native macOS host tools `re2c`, `lemon`, and `zipdir` built successfully from the pinned source in workflow run `29685158509` on a macOS 15.7.7 arm64 runner.
+- The standalone host-tools build also compiled the pinned bundled BZip2, LZMA, and miniz targets required by `zipdir`.
+- Host-tool configure/build logs, CMake cache, compile commands, hashes, and result marker were preserved in artifact `8441834895`, digest `sha256:f73f8e1f09d72dc67e00e0218330269f19452d83bb5c36f0d9eabc40e51369c9`.
 
 ### REPORTED BUT NOT YET VERIFIED IN THIS REPOSITORY
 
@@ -101,6 +105,8 @@ Required evidence:
 - Vulkan feature and extension inventory;
 - no proprietary data required.
 
+Current status: partially complete. Source identity, host-tool inventory, initial dependency inventory, and proprietary-data boundary are evidenced. Licence closure and Vulkan feature inventory remain open.
+
 ### Milestone 0B: arm64 compile boundary
 
 Required evidence:
@@ -109,6 +115,8 @@ Required evidence:
 - GZSelaco translation units compile for arm64 iOS;
 - x86-only JIT and assembly are excluded cleanly;
 - failures are classified by subsystem rather than patched blindly.
+
+Current status: host-tool prerequisite passed. No arm64 iOS target configure or translation-unit compile success is claimed.
 
 ### Milestone 0C: engine link boundary
 
@@ -153,12 +161,12 @@ Stop and document rather than broaden the work if any of the following occurs:
 
 ## 8. Current work order
 
-The active work order is limited to Milestone 0 bootstrap:
+The active work order remains limited to Milestone 0:
 
-1. protect the proprietary asset boundary;
-2. pin and audit the exact GZSelaco source revision;
-3. establish CI static gates;
-4. inventory dependencies, host tools, and iOS-incompatible platform code;
-5. prepare a bounded macOS/arm64 compile experiment.
+1. maintain the proprietary asset boundary;
+2. retain the exact source pin and static audit;
+3. preserve the successful native host-tools build as evidence;
+4. complete dependency licence and Vulkan feature inventories;
+5. execute the bounded arm64-iOS configure boundary tracked in issue `#2`.
 
-No source import, gameplay implementation, touch controls, IPA packaging, signing, or public distribution is authorized by this bootstrap alone.
+No gameplay implementation, touch controls, IPA packaging, signing, installation, or public distribution is authorized by this evidence.
