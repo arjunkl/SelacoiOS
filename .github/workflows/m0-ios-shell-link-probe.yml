@@ -10,13 +10,6 @@ on:
       - "platform/ios-shell/**"
       - "scripts/m0-ios-shell-link-probe.sh"
       - ".github/workflows/m0-ios-shell-link-probe.yml"
-  pull_request:
-    paths:
-      - "SOURCE_PIN.env"
-      - "MOLTENVK_PIN.env"
-      - "platform/ios-shell/**"
-      - "scripts/m0-ios-shell-link-probe.sh"
-      - ".github/workflows/m0-ios-shell-link-probe.yml"
   workflow_dispatch:
 
 permissions:
