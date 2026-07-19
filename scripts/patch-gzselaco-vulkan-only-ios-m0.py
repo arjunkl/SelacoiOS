@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import pathlib
+import shutil
 import sys
 
 
@@ -18,17 +19,38 @@ def replace_once(path: pathlib.Path, old: str, new: str, description: str) -> No
 
 
 def main() -> int:
-    if len(sys.argv) != 2:
+    if len(sys.argv) != 3:
         print(
-            "usage: patch-gzselaco-vulkan-only-ios-m0.py <GZSelaco source>",
+            "usage: patch-gzselaco-vulkan-only-ios-m0.py <GZSelaco source> <iOS runtime overlay>",
             file=sys.stderr,
         )
         return 2
 
     root = pathlib.Path(sys.argv[1]).resolve()
+    runtime_overlay = pathlib.Path(sys.argv[2]).resolve()
     src_cmake = root / "src" / "CMakeLists.txt"
     if not src_cmake.is_file():
         raise RuntimeError(f"not a GZSelaco source checkout: {root}")
+    if not runtime_overlay.is_file():
+        raise RuntimeError(f"iOS runtime overlay is missing: {runtime_overlay}")
+
+    ios_sources = (
+        "set( PLAT_IOS_SOURCES\n"
+        "\tcommon/platform/ios/i_platform_stub.cpp\n"
+        "\tcommon/platform/ios/i_framebuffer.cpp )\n"
+    )
+    ios_sources_with_runtime = (
+        "set( PLAT_IOS_SOURCES\n"
+        "\tcommon/platform/ios/i_platform_stub.cpp\n"
+        "\tcommon/platform/ios/i_framebuffer.cpp\n"
+        "\tcommon/platform/ios/i_platform_runtime.mm )\n"
+    )
+    replace_once(
+        src_cmake,
+        ios_sources,
+        ios_sources_with_runtime,
+        "add the native iOS runtime closure to the platform source set",
+    )
 
     marker = (
         "\tutility/nodebuilder/nodebuild_gl.cpp\n"
@@ -110,6 +132,11 @@ def main() -> int:
         ios_clock_block,
         "exclude the nonexistent librt dependency from iOS",
     )
+
+    runtime_destination = (
+        root / "src" / "common" / "platform" / "ios" / "i_platform_runtime.mm"
+    )
+    shutil.copyfile(runtime_overlay, runtime_destination)
     return 0
 
 
