@@ -19,15 +19,18 @@ def replace_once(path: pathlib.Path, old: str, new: str, description: str) -> No
 
 
 def main() -> int:
-    if len(sys.argv) != 3:
+    if len(sys.argv) != 2:
         print(
-            "usage: patch-gzselaco-vulkan-only-ios-m0.py <GZSelaco source> <iOS runtime overlay>",
+            "usage: patch-gzselaco-vulkan-only-ios-m0.py <GZSelaco source>",
             file=sys.stderr,
         )
         return 2
 
     root = pathlib.Path(sys.argv[1]).resolve()
-    runtime_overlay = pathlib.Path(sys.argv[2]).resolve()
+    repository_root = pathlib.Path(__file__).resolve().parents[1]
+    runtime_overlay = (
+        repository_root / "overlays" / "gzselaco-ios" / "i_platform_runtime.mm"
+    )
     src_cmake = root / "src" / "CMakeLists.txt"
     if not src_cmake.is_file():
         raise RuntimeError(f"not a GZSelaco source checkout: {root}")
