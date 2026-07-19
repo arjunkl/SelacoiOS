@@ -1,11 +1,9 @@
-// SelacoiOS Milestone 1 physical-runtime bootstrap.
+// SelacoiOS Milestone 1.1 crash-localization runtime bootstrap.
 //
-// This keeps the complete GZSelaco engine linked into the application while
-// UIKit owns process lifetime. The runtime gate creates an iOS CAMetalLayer,
-// creates and destroys a Vulkan instance and metal surface, enumerates a
-// physical device and a present-capable graphics queue, then displays and
-// persists the result. It does not load proprietary game data, create a
-// swapchain, or enter the GZSelaco game loop.
+// The complete GZSelaco engine remains linked, but UIKit is entered before any
+// engine-owned process initialization. A plain UIKit screen is made visible
+// first, then Metal and Vulkan are introduced in delayed, breadcrumbed phases.
+// No proprietary game data, swapchain, or engine loop is started.
 
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
@@ -40,6 +38,56 @@ double PerfToSec = 1.0e-9;
 double PerfToMillisec = 1.0e-6;
 
 namespace {
+NSString *DiagnosticDirectory()
+{
+    NSString *documents = NSSearchPathForDirectoriesInDomains(
+        NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
+    if (documents.length == 0) {
+        return nil;
+    }
+
+    NSString *directory = [documents stringByAppendingPathComponent:@"Selaco"];
+    [[NSFileManager defaultManager] createDirectoryAtPath:directory
+                              withIntermediateDirectories:YES
+                                               attributes:nil
+                                                    error:nil];
+    return directory;
+}
+
+NSString *DiagnosticPath()
+{
+    NSString *directory = DiagnosticDirectory();
+    return directory == nil
+        ? nil
+        : [directory stringByAppendingPathComponent:@"runtime-bootstrap.txt"];
+}
+
+void WriteBreadcrumb(NSString *phase)
+{
+    if (phase == nil) {
+        return;
+    }
+
+    NSString *path = DiagnosticPath();
+    if (path != nil) {
+        NSString *existing = [NSString stringWithContentsOfFile:path
+                                                       encoding:NSUTF8StringEncoding
+                                                          error:nil];
+        if (existing == nil) {
+            existing = @"SelacoiOS Milestone 1.1 crash-localization log\n";
+        }
+        NSString *line = [NSString stringWithFormat:@"%@\n", phase];
+        NSString *updated = [existing stringByAppendingString:line];
+        [updated writeToFile:path
+                 atomically:YES
+                   encoding:NSUTF8StringEncoding
+                      error:nil];
+    }
+
+    std::fprintf(stderr, "SelacoiOS phase: %s\n", phase.UTF8String);
+    std::fflush(stderr);
+}
+
 FString PathForDirectory(NSSearchPathDirectory directory, const char *leaf, bool create)
 {
     NSArray<NSString *> *paths = NSSearchPathForDirectoriesInDomains(
@@ -55,16 +103,10 @@ FString PathForDirectory(NSSearchPathDirectory directory, const char *leaf, bool
     }
 
     if (create) {
-        NSError *error = nil;
         [[NSFileManager defaultManager] createDirectoryAtPath:path
                                   withIntermediateDirectories:YES
                                                    attributes:nil
-                                                        error:&error];
-        if (error != nil) {
-            std::fprintf(stderr, "SelacoiOS: unable to create %s: %s\n",
-                path.fileSystemRepresentation,
-                error.localizedDescription.UTF8String);
-        }
+                                                        error:nil];
     }
 
     return path.fileSystemRepresentation;
@@ -118,17 +160,22 @@ struct VulkanBootstrapResult
 VulkanBootstrapResult RunVulkanBootstrap(CAMetalLayer *layer)
 {
     VulkanBootstrapResult output;
+    WriteBreadcrumb(@"phase=vulkan_probe_entered");
+
     if (layer == nil || layer.device == nil) {
         output.detail = "CAMetalLayer or Metal device is unavailable";
+        WriteBreadcrumb(@"phase=vulkan_probe_failed_layer_unavailable");
         return output;
     }
 
+    WriteBreadcrumb(@"phase=vulkan_enumerate_instance_extensions");
     uint32_t extensionCount = 0;
     VkResult result = vkEnumerateInstanceExtensionProperties(
         nullptr, &extensionCount, nullptr);
     if (result != VK_SUCCESS) {
         output.resultCode = static_cast<int>(result);
         output.detail = "vkEnumerateInstanceExtensionProperties(count) failed";
+        WriteBreadcrumb(@"phase=vulkan_instance_extension_count_failed");
         return output;
     }
 
@@ -139,6 +186,7 @@ VulkanBootstrapResult RunVulkanBootstrap(CAMetalLayer *layer)
         if (result != VK_SUCCESS && result != VK_INCOMPLETE) {
             output.resultCode = static_cast<int>(result);
             output.detail = "vkEnumerateInstanceExtensionProperties(list) failed";
+            WriteBreadcrumb(@"phase=vulkan_instance_extension_list_failed");
             return output;
         }
     }
@@ -147,6 +195,7 @@ VulkanBootstrapResult RunVulkanBootstrap(CAMetalLayer *layer)
         !HasInstanceExtension(extensions, VK_EXT_METAL_SURFACE_EXTENSION_NAME)) {
         output.resultCode = static_cast<int>(VK_ERROR_EXTENSION_NOT_PRESENT);
         output.detail = "VK_KHR_surface or VK_EXT_metal_surface is unavailable";
+        WriteBreadcrumb(@"phase=vulkan_required_extensions_missing");
         return output;
     }
 
@@ -161,7 +210,7 @@ VulkanBootstrapResult RunVulkanBootstrap(CAMetalLayer *layer)
     VkApplicationInfo applicationInfo{};
     applicationInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     applicationInfo.pApplicationName = "SelacoiOS Runtime Bootstrap";
-    applicationInfo.applicationVersion = VK_MAKE_API_VERSION(0, 0, 1, 0);
+    applicationInfo.applicationVersion = VK_MAKE_API_VERSION(0, 0, 2, 0);
     applicationInfo.pEngineName = "GZSelaco iOS Runtime Boundary";
     applicationInfo.engineVersion = VK_MAKE_API_VERSION(0, 4, 13, 0);
     applicationInfo.apiVersion = VK_API_VERSION_1_1;
@@ -175,26 +224,32 @@ VulkanBootstrapResult RunVulkanBootstrap(CAMetalLayer *layer)
         instanceInfo.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
     }
 
+    WriteBreadcrumb(@"phase=vulkan_create_instance");
     VkInstance instance = VK_NULL_HANDLE;
     result = vkCreateInstance(&instanceInfo, nullptr, &instance);
     if (result != VK_SUCCESS) {
         output.resultCode = static_cast<int>(result);
         output.detail = "vkCreateInstance failed";
+        WriteBreadcrumb(@"phase=vulkan_create_instance_failed");
         return output;
     }
+    WriteBreadcrumb(@"phase=vulkan_instance_created");
 
     VkMetalSurfaceCreateInfoEXT surfaceInfo{};
     surfaceInfo.sType = VK_STRUCTURE_TYPE_METAL_SURFACE_CREATE_INFO_EXT;
     surfaceInfo.pLayer = layer;
 
+    WriteBreadcrumb(@"phase=vulkan_create_metal_surface");
     VkSurfaceKHR surface = VK_NULL_HANDLE;
     result = vkCreateMetalSurfaceEXT(instance, &surfaceInfo, nullptr, &surface);
     if (result != VK_SUCCESS) {
         output.resultCode = static_cast<int>(result);
         output.detail = "vkCreateMetalSurfaceEXT failed";
+        WriteBreadcrumb(@"phase=vulkan_create_metal_surface_failed");
         vkDestroyInstance(instance, nullptr);
         return output;
     }
+    WriteBreadcrumb(@"phase=vulkan_metal_surface_created");
 
     uint32_t physicalDeviceCount = 0;
     result = vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, nullptr);
@@ -203,6 +258,7 @@ VulkanBootstrapResult RunVulkanBootstrap(CAMetalLayer *layer)
             ? static_cast<int>(VK_ERROR_INITIALIZATION_FAILED)
             : static_cast<int>(result);
         output.detail = "no Vulkan physical device was enumerated";
+        WriteBreadcrumb(@"phase=vulkan_physical_device_count_failed");
         vkDestroySurfaceKHR(instance, surface, nullptr);
         vkDestroyInstance(instance, nullptr);
         return output;
@@ -214,10 +270,12 @@ VulkanBootstrapResult RunVulkanBootstrap(CAMetalLayer *layer)
     if (result != VK_SUCCESS && result != VK_INCOMPLETE) {
         output.resultCode = static_cast<int>(result);
         output.detail = "vkEnumeratePhysicalDevices(list) failed";
+        WriteBreadcrumb(@"phase=vulkan_physical_device_list_failed");
         vkDestroySurfaceKHR(instance, surface, nullptr);
         vkDestroyInstance(instance, nullptr);
         return output;
     }
+    WriteBreadcrumb(@"phase=vulkan_physical_devices_enumerated");
 
     for (VkPhysicalDevice physicalDevice : physicalDevices) {
         VkPhysicalDeviceProperties properties{};
@@ -257,44 +315,29 @@ VulkanBootstrapResult RunVulkanBootstrap(CAMetalLayer *layer)
     if (!output.passed) {
         output.resultCode = static_cast<int>(VK_ERROR_FEATURE_NOT_PRESENT);
         output.detail = "no graphics queue reported Metal-surface presentation support";
+        WriteBreadcrumb(@"phase=vulkan_present_queue_not_found");
+    } else {
+        WriteBreadcrumb(@"phase=vulkan_probe_passed");
     }
 
     vkDestroySurfaceKHR(instance, surface, nullptr);
     vkDestroyInstance(instance, nullptr);
+    WriteBreadcrumb(@"phase=vulkan_resources_destroyed");
     return output;
 }
 
-void PersistRuntimeResult(NSString *text)
+void UncaughtExceptionHandler(NSException *exception)
 {
-    FString documents = DocumentsPath(nullptr, true);
-    if (documents.IsEmpty()) {
-        return;
-    }
-
-    NSString *root = [NSString stringWithUTF8String:documents.GetChars()];
-    NSString *path = [root stringByAppendingPathComponent:@"runtime-bootstrap.txt"];
-    NSError *error = nil;
-    [text writeToFile:path
-           atomically:YES
-             encoding:NSUTF8StringEncoding
-                error:&error];
-    if (error != nil) {
-        std::fprintf(stderr, "SelacoiOS: unable to persist runtime result: %s\n",
-            error.localizedDescription.UTF8String);
-    }
+    NSString *message = [NSString stringWithFormat:
+        @"phase=uncaught_objc_exception name=%@ reason=%@",
+        exception.name,
+        exception.reason ?: @"unknown"];
+    WriteBreadcrumb(message);
 }
 } // namespace
 
 void CalculateCPUSpeed()
 {
-#if defined(__aarch64__)
-    uint64_t frequency = 0;
-    __asm__ volatile("mrs %0, cntfrq_el0" : "=r"(frequency));
-    if (frequency != 0) {
-        PerfToSec = 1.0 / static_cast<double>(frequency);
-        PerfToMillisec = 1000.0 / static_cast<double>(frequency);
-    }
-#else
     mach_timebase_info_data_t timebase{};
     if (mach_timebase_info(&timebase) == KERN_SUCCESS && timebase.denom != 0) {
         const double nanosecondsPerTick =
@@ -302,7 +345,6 @@ void CalculateCPUSpeed()
         PerfToSec = nanosecondsPerTick * 1.0e-9;
         PerfToMillisec = nanosecondsPerTick * 1.0e-6;
     }
-#endif
 }
 
 void I_GetEvent() {}
@@ -369,18 +411,9 @@ FString M_GetScreenshotsPath()
     return DocumentsPath("Screenshots", true);
 }
 
-@interface SelacoRuntimeView : UIView
-@end
-
-@implementation SelacoRuntimeView
-+ (Class)layerClass
-{
-    return CAMetalLayer.class;
-}
-@end
-
 @interface SelacoRuntimeViewController : UIViewController
 @property(nonatomic, strong) UILabel *statusLabel;
+@property(nonatomic, strong) CAMetalLayer *metalLayer;
 @property(nonatomic, assign) BOOL testStarted;
 @end
 
@@ -388,15 +421,10 @@ FString M_GetScreenshotsPath()
 
 - (void)loadView
 {
-    SelacoRuntimeView *root = [[SelacoRuntimeView alloc] initWithFrame:CGRectZero];
+    WriteBreadcrumb(@"phase=view_load_entered");
+    UIView *root = [[UIView alloc] initWithFrame:CGRectZero];
     root.backgroundColor = [UIColor colorWithRed:0.018 green:0.025 blue:0.045 alpha:1.0];
     self.view = root;
-
-    CAMetalLayer *metalLayer = (CAMetalLayer *)root.layer;
-    metalLayer.device = MTLCreateSystemDefaultDevice();
-    metalLayer.pixelFormat = MTLPixelFormatBGRA8Unorm;
-    metalLayer.framebufferOnly = YES;
-    metalLayer.contentsScale = UIScreen.mainScreen.scale;
 
     UILabel *label = [[UILabel alloc] initWithFrame:CGRectZero];
     label.translatesAutoresizingMaskIntoConstraints = NO;
@@ -404,7 +432,7 @@ FString M_GetScreenshotsPath()
     label.textAlignment = NSTextAlignmentCenter;
     label.textColor = UIColor.whiteColor;
     label.font = [UIFont monospacedSystemFontOfSize:16.0 weight:UIFontWeightSemibold];
-    label.text = @"SelacoiOS\nFull GZSelaco engine linked\nStarting Vulkan + Metal runtime probe…";
+    label.text = @"SelacoiOS Crash-Localization Build\n\nUIKit view created\nWaiting before Metal initialization…";
     [root addSubview:label];
     self.statusLabel = label;
 
@@ -414,16 +442,21 @@ FString M_GetScreenshotsPath()
         [label.leadingAnchor constraintGreaterThanOrEqualToAnchor:root.safeAreaLayoutGuide.leadingAnchor constant:24.0],
         [label.trailingAnchor constraintLessThanOrEqualToAnchor:root.safeAreaLayoutGuide.trailingAnchor constant:-24.0],
     ]];
+    WriteBreadcrumb(@"phase=view_load_completed");
 }
 
 - (void)viewDidLayoutSubviews
 {
     [super viewDidLayoutSubviews];
-    CAMetalLayer *metalLayer = (CAMetalLayer *)self.view.layer;
+    if (self.metalLayer == nil) {
+        return;
+    }
+
+    self.metalLayer.frame = self.view.bounds;
     const CGFloat scale = UIScreen.mainScreen.scale;
     const CGSize points = self.view.bounds.size;
     const CGSize pixels = CGSizeMake(points.width * scale, points.height * scale);
-    metalLayer.drawableSize = pixels;
+    self.metalLayer.drawableSize = pixels;
     SelacoIOSSetDrawableSize(
         std::max(1, static_cast<int>(pixels.width)),
         std::max(1, static_cast<int>(pixels.height)));
@@ -436,39 +469,85 @@ FString M_GetScreenshotsPath()
         return;
     }
     self.testStarted = YES;
+    WriteBreadcrumb(@"phase=uikit_view_visible");
 
-    dispatch_async(dispatch_get_main_queue(), ^{
-        CAMetalLayer *metalLayer = (CAMetalLayer *)self.view.layer;
-        VulkanBootstrapResult result = RunVulkanBootstrap(metalLayer);
-        NSString *device = result.deviceName.empty()
-            ? @"not enumerated"
-            : [NSString stringWithUTF8String:result.deviceName.c_str()];
-        NSString *detail = [NSString stringWithUTF8String:result.detail.c_str()];
-        NSString *status = result.passed ? @"PASS" : @"FAIL";
-        NSString *queue = result.queueFamily == UINT32_MAX
-            ? @"n/a"
-            : [NSString stringWithFormat:@"%u", result.queueFamily];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)),
+                   dispatch_get_main_queue(), ^{
+        @try {
+            self.statusLabel.text = @"SelacoiOS Crash-Localization Build\n\nUIKit: PASS\nCreating Metal device and CAMetalLayer…";
+            WriteBreadcrumb(@"phase=metal_device_create_entered");
+            id<MTLDevice> device = MTLCreateSystemDefaultDevice();
+            if (device == nil) {
+                self.statusLabel.text = @"UIKit: PASS\nMetal device: FAIL";
+                WriteBreadcrumb(@"phase=metal_device_unavailable");
+                return;
+            }
 
-        NSString *text = [NSString stringWithFormat:
-            @"SelacoiOS Runtime Bootstrap\n\n"
-             "Complete GZSelaco engine: LINKED\n"
-             "UIKit lifecycle: ACTIVE\n"
-             "MoltenVK instance + Metal surface: %@\n"
-             "Physical device: %@\n"
-             "Graphics/present queue: %@\n"
-             "VkResult: %d\n\n"
-             "%@\n\n"
-             "No Selaco.ipk3 loaded\n"
-             "No swapchain or game loop started",
-            status,
-            device,
-            queue,
-            result.resultCode,
-            detail];
-        self.statusLabel.text = text;
-        PersistRuntimeResult(text);
-        std::fprintf(stdout, "%s\n", text.UTF8String);
-        std::fflush(stdout);
+            CAMetalLayer *layer = [CAMetalLayer layer];
+            layer.device = device;
+            layer.pixelFormat = MTLPixelFormatBGRA8Unorm;
+            layer.framebufferOnly = YES;
+            layer.contentsScale = UIScreen.mainScreen.scale;
+            [self.view.layer insertSublayer:layer atIndex:0];
+            self.metalLayer = layer;
+            [self viewDidLayoutSubviews];
+            WriteBreadcrumb(@"phase=metal_layer_ready");
+            self.statusLabel.text = @"SelacoiOS Crash-Localization Build\n\nUIKit: PASS\nMetal layer: PASS\nWaiting before Vulkan probe…";
+
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)),
+                           dispatch_get_main_queue(), ^{
+                @try {
+                    self.statusLabel.text = @"SelacoiOS Crash-Localization Build\n\nUIKit: PASS\nMetal layer: PASS\nRunning Vulkan probe…";
+                    VulkanBootstrapResult result = RunVulkanBootstrap(self.metalLayer);
+                    NSString *deviceName = result.deviceName.empty()
+                        ? @"not enumerated"
+                        : [NSString stringWithUTF8String:result.deviceName.c_str()];
+                    NSString *detail = [NSString stringWithUTF8String:result.detail.c_str()];
+                    NSString *queue = result.queueFamily == UINT32_MAX
+                        ? @"n/a"
+                        : [NSString stringWithFormat:@"%u", result.queueFamily];
+                    NSString *status = result.passed ? @"PASS" : @"FAIL";
+                    NSString *text = [NSString stringWithFormat:
+                        @"SelacoiOS Crash-Localization Build\n\n"
+                         "UIKit lifecycle: PASS\n"
+                         "Metal layer: PASS\n"
+                         "Vulkan + Metal surface: %@\n"
+                         "Physical device: %@\n"
+                         "Graphics/present queue: %@\n"
+                         "VkResult: %d\n\n%@\n\n"
+                         "No Selaco.ipk3 loaded\n"
+                         "No swapchain or game loop started",
+                        status,
+                        deviceName,
+                        queue,
+                        result.resultCode,
+                        detail];
+                    self.statusLabel.text = text;
+                    WriteBreadcrumb([NSString stringWithFormat:
+                        @"phase=probe_completed result=%@ code=%d device=%@ queue=%@",
+                        status,
+                        result.resultCode,
+                        deviceName,
+                        queue]);
+                }
+                @catch (NSException *exception) {
+                    NSString *message = [NSString stringWithFormat:
+                        @"phase=vulkan_objc_exception name=%@ reason=%@",
+                        exception.name,
+                        exception.reason ?: @"unknown"];
+                    WriteBreadcrumb(message);
+                    self.statusLabel.text = message;
+                }
+            });
+        }
+        @catch (NSException *exception) {
+            NSString *message = [NSString stringWithFormat:
+                @"phase=metal_objc_exception name=%@ reason=%@",
+                exception.name,
+                exception.reason ?: @"unknown"];
+            WriteBreadcrumb(message);
+            self.statusLabel.text = message;
+        }
     });
 }
 
@@ -483,9 +562,11 @@ FString M_GetScreenshotsPath()
 {
     (void)application;
     (void)launchOptions;
+    WriteBreadcrumb(@"phase=app_delegate_entered");
     self.window = [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
     self.window.rootViewController = [[SelacoRuntimeViewController alloc] init];
     [self.window makeKeyAndVisible];
+    WriteBreadcrumb(@"phase=window_visible");
     return YES;
 }
 @end
@@ -493,9 +574,8 @@ FString M_GetScreenshotsPath()
 int main(int argc, char **argv)
 {
     @autoreleasepool {
-        static FArgs processArgs(argc, argv);
-        Args = &processArgs;
-        CalculateCPUSpeed();
+        NSSetUncaughtExceptionHandler(&UncaughtExceptionHandler);
+        WriteBreadcrumb(@"phase=main_entered");
         return UIApplicationMain(
             argc,
             argv,
