@@ -86,9 +86,11 @@ echo "== Fetch exact sources =="
 fetch_exact_commit "${LIBVPX_REPOSITORY}" "${LIBVPX_COMMIT}" "${vpx_source}"
 fetch_exact_commit "${GZSELACO_REPOSITORY}" "${GZSELACO_COMMIT}" "${gzselaco_source}"
 
-if ! grep -Fq "VERSION_MAJOR=1" "${vpx_source}/build/make/version.sh" || \
-   ! grep -Fq "VERSION_MINOR=12" "${vpx_source}/build/make/version.sh"; then
-  echo "error: pinned libvpx source does not identify the expected 1.12 release line" >&2
+resolved_vpx_version="$("${vpx_source}/build/make/version.sh" --bare "${vpx_source}")"
+resolved_vpx_version="${resolved_vpx_version#v}"
+echo "resolved libvpx version: ${resolved_vpx_version}"
+if [[ "${resolved_vpx_version}" != "${LIBVPX_VERSION}" ]]; then
+  echo "error: pinned libvpx reports ${resolved_vpx_version}, expected ${LIBVPX_VERSION}" >&2
   exit 1
 fi
 
@@ -233,7 +235,7 @@ shasum -a 256 "${repo_root}/build/artifacts/libvpx-ios-arm64-probe.zip" | tee "$
 cat > "${evidence_dir}/probe-manifest.txt" <<MANIFEST
 repository=${LIBVPX_REPOSITORY}
 commit=${LIBVPX_COMMIT}
-version=${LIBVPX_VERSION}
+version=${resolved_vpx_version}
 gzselaco_vcpkg_port_version=${LIBVPX_VCPKG_PORT_VERSION}
 gzselaco_commit=${GZSELACO_COMMIT}
 host_os=$(sw_vers -productVersion)
