@@ -99,11 +99,11 @@ mkdir -p "${vpx_build}" "${vpx_install}"
 echo "== Inventory pinned GZSelaco libvpx usage =="
 {
   grep -RIl --include='*.c' --include='*.cc' --include='*.cpp' --include='*.cxx' --include='*.h' --include='*.hpp' \
-    -E '(^|[^A-Za-z0-9_])(vpx_|VPX_)' "${gzselaco_source}" || true
+    -E '(^|[^A-Za-z0-9_])(vpx_|VPX_)' "${gzselaco_source}/src" || true
 } | sed "s#${gzselaco_source}/##" | sort -u | tee "${evidence_dir}/gzselaco-libvpx-files.txt"
 {
   grep -RhoE --include='*.c' --include='*.cc' --include='*.cpp' --include='*.cxx' --include='*.h' --include='*.hpp' \
-    '(^|[^A-Za-z0-9_])((vpx|VPX)_[A-Za-z0-9_]+)' "${gzselaco_source}" || true
+    '(^|[^A-Za-z0-9_])((vpx|VPX)_[A-Za-z0-9_]+)' "${gzselaco_source}/src" || true
 } | sed -E 's/^[^A-Za-z0-9_]+//' | sort -u | tee "${evidence_dir}/gzselaco-libvpx-tokens.txt"
 
 if [[ ! -s "${evidence_dir}/gzselaco-libvpx-files.txt" ]]; then
@@ -116,6 +116,7 @@ export CC="${clang_path}"
 export CXX="${clangxx_path}"
 export AR="${ar_path}"
 export STRIP="${strip_path}"
+export LDFLAGS="-arch arm64 -isysroot ${iphoneos_sdk_path} -miphoneos-version-min=15.0"
 
 (
   cd "${vpx_build}"
@@ -138,7 +139,6 @@ export STRIP="${strip_path}"
     --disable-runtime-cpu-detect \
     --extra-cflags="-arch arm64 -isysroot ${iphoneos_sdk_path} -miphoneos-version-min=15.0" \
     --extra-cxxflags="-arch arm64 -isysroot ${iphoneos_sdk_path} -miphoneos-version-min=15.0" \
-    --extra-ldflags="-arch arm64 -isysroot ${iphoneos_sdk_path} -miphoneos-version-min=15.0" \
     2>&1 | tee "${evidence_dir}/configure.log"
 )
 
