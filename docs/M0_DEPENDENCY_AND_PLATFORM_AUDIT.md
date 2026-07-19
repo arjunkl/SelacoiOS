@@ -2,7 +2,7 @@
 
 Audit date: 2026-07-19
 
-Source under review: `TheCockatrice/GZSelaco` at `7543afd533ea7c60ed1d2b6ad7518656d77097b`
+Source under review: `TheCockatrice/GZSelaco` at `7543afd533ea7c60ed61d2b6ad7518656d77097b`
 
 MoltenVK package under review: `KhronosGroup/MoltenVK` release `v1.4.1`, iOS asset SHA-256 `54336b90212c390ed5935c96460aed3bf651ad7d3c0f0e956586ce18e9c0b701`
 
