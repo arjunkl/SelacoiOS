@@ -1,0 +1,87 @@
+name: Milestone 0 Full Engine App Artifact
+
+on:
+  push:
+    branches:
+      - "agent/**"
+    paths:
+      - "SOURCE_PIN.env"
+      - "DEPENDENCY_TRIAL_PINS.env"
+      - "MOLTENVK_PIN.env"
+      - "cmake/host-tools/**"
+      - "overlays/gzselaco-ios/**"
+      - "overlays/zmusic-ios/**"
+      - "probes/libvpx-decoder-contract.cpp"
+      - "scripts/patch-gzselaco-ios-m0.py"
+      - "scripts/patch-gzselaco-vulkan-only-ios-m0.py"
+      - "scripts/patch-zmusic-ios-m0.py"
+      - "scripts/m0-libvpx-ios-probe.sh"
+      - "scripts/m0-full-engine-configure-probe.sh"
+      - "scripts/m0-full-engine-compile-probe.sh"
+      - "scripts/m0-full-engine-app-artifact-probe.sh"
+      - ".github/workflows/m0-full-engine-app-artifact-probe.yml"
+  pull_request:
+    paths:
+      - "SOURCE_PIN.env"
+      - "DEPENDENCY_TRIAL_PINS.env"
+      - "MOLTENVK_PIN.env"
+      - "cmake/host-tools/**"
+      - "overlays/gzselaco-ios/**"
+      - "overlays/zmusic-ios/**"
+      - "probes/libvpx-decoder-contract.cpp"
+      - "scripts/patch-gzselaco-ios-m0.py"
+      - "scripts/patch-gzselaco-vulkan-only-ios-m0.py"
+      - "scripts/patch-zmusic-ios-m0.py"
+      - "scripts/m0-libvpx-ios-probe.sh"
+      - "scripts/m0-full-engine-configure-probe.sh"
+      - "scripts/m0-full-engine-compile-probe.sh"
+      - "scripts/m0-full-engine-app-artifact-probe.sh"
+      - ".github/workflows/m0-full-engine-app-artifact-probe.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: m0-full-engine-app-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  arm64-iphoneos-full-app:
+    name: unsigned full-engine arm64 iPhoneOS app
+    runs-on: macos-15
+    timeout-minutes: 90
+    steps:
+      - name: Check out SelacoiOS
+        uses: actions/checkout@v4
+
+      - name: Validate app probe inputs
+        run: |
+          bash -n scripts/m0-full-engine-app-artifact-probe.sh
+          bash -n scripts/m0-full-engine-compile-probe.sh
+          bash -n scripts/m0-full-engine-configure-probe.sh
+          python3 -m py_compile scripts/patch-gzselaco-ios-m0.py
+          python3 -m py_compile scripts/patch-gzselaco-vulkan-only-ios-m0.py
+          python3 -m py_compile scripts/patch-zmusic-ios-m0.py
+          test -s overlays/gzselaco-ios/i_platform_runtime.mm
+
+      - name: Build, preserve, and validate full-engine app
+        run: bash scripts/m0-full-engine-app-artifact-probe.sh
+
+      - name: Preserve full-engine app evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selaco-m0-full-engine-app-evidence
+          path: build/evidence/m0-full-engine-app
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Preserve unsigned full-engine app
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selaco-m0-full-engine-unsigned-app
+          path: build/artifacts/m0-full-engine-app/Selaco-full-engine-unsigned-app.zip
+          if-no-files-found: error
+          retention-days: 14
