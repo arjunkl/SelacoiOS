@@ -63,6 +63,7 @@ set_target_properties(MoltenVK::MoltenVK PROPERTIES
 add_library(selaco-engine-boundary STATIC
   "${CMAKE_CURRENT_SOURCE_DIR}/SelacoEngineBoundary.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/SelacoVulkanBoundary.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/SelacoVulkanSurfaceBoundary.mm"
   "${GZSELACO_SOURCE_DIR}/src/common/thirdparty/superfasthash.cpp")
 
 target_include_directories(selaco-engine-boundary PRIVATE
@@ -74,7 +75,8 @@ target_include_directories(selaco-engine-boundary PRIVATE
 target_compile_options(selaco-engine-boundary PRIVATE
   -Wall
   -Wextra
-  -Wno-unused-parameter)
+  -Wno-unused-parameter
+  $<$<COMPILE_LANGUAGE:OBJCXX>:-fobjc-arc>)
 
 add_executable(SelacoiOSShell MACOSX_BUNDLE
   "${CMAKE_CURRENT_SOURCE_DIR}/AppMain.mm")
