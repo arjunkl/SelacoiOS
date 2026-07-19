@@ -4,7 +4,7 @@ Audit date: 2026-07-19
 
 Source under review: `TheCockatrice/GZSelaco` at `7543afd533ea7c60ed61d2b6ad7518656d77097b`
 
-This document records verified source observations and bounded engineering implications. It does not claim that any dependency has compiled, linked, launched, or run correctly on iOS.
+This document records verified source observations and bounded engineering implications. Native macOS host-tool evidence is recorded below, but no dependency or engine target is claimed to have compiled, linked, launched, or run correctly on iOS.
 
 ## 1. Verified build characteristics
 
@@ -25,9 +25,9 @@ This document records verified source observations and bounded engineering impli
 | ZMusic | Required music and audio decoding library | Must be cross-compiled and licence-audited |
 | libvpx | Required video codec; configuration errors when absent | Must be cross-compiled or video support must be deliberately refactored |
 | OpenAL / OpenAL Soft | Main sound backend unless disabled | Prefer static OpenAL Soft; dynamic loading is unsuitable as the initial iOS path |
-| BZip2 | Archive support | Internal copy is available and is the preferred reproducible starting point |
-| LZMA | Internal library | Cross-compile audit required |
-| miniz | Internal library | Cross-compile audit required |
+| BZip2 | Archive support | Native macOS bundled target passed; arm64-iOS cross-compile remains unverified |
+| LZMA | Internal library | Native macOS bundled target passed; arm64-iOS cross-compile remains unverified |
+| miniz | Internal library | Native macOS bundled target passed; arm64-iOS cross-compile remains unverified |
 | ZVulkan | Vulkan abstraction and renderer support | Required for the MoltenVK direction; feature audit required |
 | ZWidget | UI support library | Compile and platform audit required |
 | WebP | Internal image library | Cross-compile audit required |
@@ -43,6 +43,19 @@ The build creates these tools as subprojects:
 - `zipdir`
 
 The engine uses generated parser/scanner outputs and PK3 construction steps. These tools must run as native macOS executables during an iOS cross-build. They must not be built for iPhone and then executed by the host.
+
+A standalone native-host project now builds these tools without configuring the desktop game. Workflow run `29685158509` passed on macOS 15.7.7 arm64 and preserved:
+
+- configure and build logs;
+- CMake cache;
+- compile commands;
+- executable paths and SHA-256 hashes;
+- the `re2c` version output;
+- a machine-readable `PASS` marker.
+
+Evidence artifact: `8441834895`, digest `sha256:f73f8e1f09d72dc67e00e0218330269f19452d83bb5c36f0d9eabc40e51369c9`.
+
+This verifies only native host execution. It does not verify imported executable targets inside an iOS cross-build yet.
 
 ## 3. Verified Apple-platform conflicts
 
@@ -107,7 +120,7 @@ The first arm64 compile experiment should use these policy decisions:
 4. Does the BC1/BC3/BC7 compressed texture path work unchanged through MoltenVK on A18 Pro?
 5. Which POSIX platform files are reusable without desktop APIs?
 6. Does the interpreted VM sustain acceptable frame time in a representative combat scene?
-7. Which generated build products must be exported from the native host-tools build?
+7. Can the verified native host executables be imported cleanly into the target CMake build?
 8. Are any bundled third-party licences incompatible with the intended private or eventual public distribution model?
 
 ## 6. Next bounded experiment
@@ -115,7 +128,7 @@ The first arm64 compile experiment should use these policy decisions:
 Create a macOS-hosted, arm64-iOS CMake configure probe that:
 
 1. fetches the exact pinned source;
-2. builds and exports native host tools separately;
+2. consumes the separately built native host tools;
 3. configures the target build with the initial policy decisions above;
 4. stops after configuration or the first classified compile boundary;
 5. archives the exact CMake cache, command line, and first failure log;
