@@ -121,7 +121,6 @@ export STRIP="${strip_path}"
   cd "${vpx_build}"
   "${vpx_source}/configure" \
     --target=arm64-darwin20-gcc \
-    --sdk-path="${iphoneos_sdk_path}" \
     --prefix="${vpx_install}" \
     --disable-examples \
     --disable-tools \
