@@ -65,6 +65,96 @@ def main() -> int:
         'XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "am.arjunkl.selacoios.runtime.m1"',
         "assign the runtime-bootstrap bundle identifier",
     )
+
+    replace_once(
+        src_cmake,
+        '\tif(NOT MOLTENVK_LIBRARY)\n'
+        '\t\tmessage(FATAL_ERROR "MOLTENVK_LIBRARY is required for the iOS target")\n'
+        '\tendif()\n'
+        '\tset( LINK_FRAMEWORKS "-framework Foundation -framework UIKit -framework QuartzCore -framework Metal -framework CoreGraphics -framework IOSurface")\n'
+        '\ttarget_link_libraries(zdoom ${MOLTENVK_LIBRARY})\n'
+        '\tset_target_properties(zdoom PROPERTIES\n'
+        '\t\tLINK_FLAGS "${LINK_FRAMEWORKS}"\n'
+        '\t\tXCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "am.arjunkl.selacoios.runtime.m1"\n'
+        '\t\tXCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED "NO"\n'
+        '\t\tXCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED "NO")\n',
+        '\tif(NOT MOLTENVK_DYNAMIC_FRAMEWORK)\n'
+        '\t\tmessage(FATAL_ERROR "MOLTENVK_DYNAMIC_FRAMEWORK is required for the runtime target")\n'
+        '\tendif()\n'
+        '\tset(MOLTENVK_DYNAMIC_BINARY "${MOLTENVK_DYNAMIC_FRAMEWORK}/MoltenVK")\n'
+        '\tif(NOT EXISTS "${MOLTENVK_DYNAMIC_BINARY}")\n'
+        '\t\tmessage(FATAL_ERROR "MoltenVK dynamic framework binary is missing")\n'
+        '\tendif()\n'
+        '\tset( LINK_FRAMEWORKS "-framework Foundation -framework UIKit -framework QuartzCore -framework Metal -framework CoreGraphics -framework IOSurface")\n'
+        '\ttarget_link_libraries(zdoom "${MOLTENVK_DYNAMIC_BINARY}")\n'
+        '\tadd_custom_command(TARGET zdoom POST_BUILD\n'
+        '\t\tCOMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:zdoom>/Frameworks"\n'
+        '\t\tCOMMAND ${CMAKE_COMMAND} -E copy_directory\n'
+        '\t\t\t"${MOLTENVK_DYNAMIC_FRAMEWORK}"\n'
+        '\t\t\t"$<TARGET_FILE_DIR:zdoom>/Frameworks/MoltenVK.framework")\n'
+        '\tset_target_properties(zdoom PROPERTIES\n'
+        '\t\tLINK_FLAGS "${LINK_FRAMEWORKS}"\n'
+        '\t\tXCODE_ATTRIBUTE_LD_RUNPATH_SEARCH_PATHS "@executable_path/Frameworks"\n'
+        '\t\tXCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "am.arjunkl.selacoios.runtime.m1"\n'
+        '\t\tXCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED "NO"\n'
+        '\t\tXCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED "NO")\n',
+        "switch the runtime target to embedded dynamic MoltenVK",
+    )
+
+    replace_once(
+        destination,
+        '#include <cstring>\n',
+        '#include <cstring>\n#include <dlfcn.h>\n',
+        "include the dynamic loader API",
+    )
+    replace_once(
+        destination,
+        '#include "zstring.h"\n',
+        '#include "zstring.h"\n#include "zvulkan/volk/volk.h"\n',
+        "include the engine Vulkan dispatch loader",
+    )
+    replace_once(
+        destination,
+        '    WriteBreadcrumb(@"phase=vulkan_enumerate_instance_extensions");\n'
+        '    uint32_t extensionCount = 0;\n',
+        '    WriteBreadcrumb(@"phase=vulkan_load_dynamic_moltenvk");\n'
+        '    NSString *frameworkBinary = [[NSBundle mainBundle] '\
+        'pathForResource:@"MoltenVK" ofType:nil '\
+        'inDirectory:@"Frameworks/MoltenVK.framework"];\n'
+        '    if (frameworkBinary == nil) {\n'
+        '        output.detail = "embedded MoltenVK.framework binary is missing";\n'
+        '        return output;\n'
+        '    }\n'
+        '    void *moltenVKHandle = dlopen(frameworkBinary.fileSystemRepresentation, RTLD_NOW | RTLD_LOCAL);\n'
+        '    if (moltenVKHandle == nullptr) {\n'
+        '        output.detail = dlerror() != nullptr ? dlerror() : "dlopen MoltenVK failed";\n'
+        '        return output;\n'
+        '    }\n'
+        '    auto getInstanceProcAddr = reinterpret_cast<PFN_vkGetInstanceProcAddr>(\n'
+        '        dlsym(moltenVKHandle, "vkGetInstanceProcAddr"));\n'
+        '    if (getInstanceProcAddr == nullptr) {\n'
+        '        output.detail = "dynamic MoltenVK lacks vkGetInstanceProcAddr";\n'
+        '        return output;\n'
+        '    }\n'
+        '    volkInitializeCustom(getInstanceProcAddr);\n'
+        '    if (vkEnumerateInstanceExtensionProperties == nullptr || vkCreateInstance == nullptr) {\n'
+        '        output.detail = "Volk global dispatch initialization failed";\n'
+        '        return output;\n'
+        '    }\n'
+        '    WriteBreadcrumb(@"phase=vulkan_enumerate_instance_extensions");\n'
+        '    uint32_t extensionCount = 0;\n',
+        "initialize Volk from the embedded dynamic framework",
+    )
+    replace_once(
+        destination,
+        '    WriteBreadcrumb(@"phase=vulkan_instance_created");\n\n'
+        '    VkMetalSurfaceCreateInfoEXT surfaceInfo{};\n',
+        '    volkLoadInstance(instance);\n'
+        '    WriteBreadcrumb(@"phase=vulkan_instance_created_and_dispatch_loaded");\n\n'
+        '    VkMetalSurfaceCreateInfoEXT surfaceInfo{};\n',
+        "load instance-level Vulkan dispatch",
+    )
+
     return 0
 
 
