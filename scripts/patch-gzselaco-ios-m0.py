@@ -43,13 +43,28 @@ def main() -> int:
     )
     replace_once(
         root_cmake,
+        '\telseif( NOT MINGW )\n'
+        '\t\t# Generic GCC/Clang requires position independent executable to be enabled explicitly\n'
+        '\t\tset( ALL_C_FLAGS "${ALL_C_FLAGS} -fPIE" )\n'
+        '\t\tset( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pie" )\n'
+        '\tendif( APPLE )\n',
+        '\telseif( NOT MINGW )\n'
+        '\t\t# Generic GCC/Clang requires position independent executable to be enabled explicitly\n'
+        '\t\tset( ALL_C_FLAGS "${ALL_C_FLAGS} -fPIE" )\n'
+        '\t\tset( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pie" )\n'
+        '\tendif()\n',
+        "close the broadened Apple condition without stale arguments",
+    )
+    replace_once(
+        root_cmake,
         'add_subdirectory( libraries/discordrpc EXCLUDE_FROM_ALL )\n'
         'set( DRPC_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libraries/discordrpc/include" )\n'
         'set( DRPC_LIBRARIES discord-rpc )\n'
         'set( DRPC_LIBRARY discord-rpc )\n',
         'option(SELACO_DISABLE_DISCORD_RPC "Exclude Discord RPC from this target" OFF)\n'
         'if(SELACO_DISABLE_DISCORD_RPC)\n'
-        '\tset(DRPC_INCLUDE_DIR "")\n'
+        '\tset(DRPC_INCLUDE_DIR "${CMAKE_BINARY_DIR}/disabled-discordrpc/include")\n'
+        '\tfile(MAKE_DIRECTORY "${DRPC_INCLUDE_DIR}")\n'
         '\tset(DRPC_LIBRARIES "")\n'
         '\tset(DRPC_LIBRARY "")\n'
         'else()\n'
@@ -58,7 +73,7 @@ def main() -> int:
         '\tset( DRPC_LIBRARIES discord-rpc )\n'
         '\tset( DRPC_LIBRARY discord-rpc )\n'
         'endif()\n',
-        "make Discord RPC explicitly excludable",
+        "make Discord RPC explicitly excludable with a valid include path",
     )
 
     src_cmake = root / "src" / "CMakeLists.txt"
