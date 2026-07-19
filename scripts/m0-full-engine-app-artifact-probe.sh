@@ -39,9 +39,8 @@ if [[ ! -f "${compile_probe}" ]]; then
 fi
 
 # Preserve only the top-level mktemp workspaces created beneath the controlled
-# TMPDIR. All ordinary rm calls inside dependency builds still delegate to the
-# system utility. This avoids duplicating the proven full compile harness solely
-# to retain its otherwise-ephemeral app bundle.
+# temporary root. All ordinary rm calls inside dependency builds still delegate
+# to the system utility.
 cat > "${tmp_root}/bin/rm" <<'SHIM'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -125,24 +124,20 @@ if unexpected:
     raise SystemExit("unexpected non-system dynamic dependencies: " + ", ".join(unexpected))
 PY
 
-set +e
-codesign -d --verbose=4 "${app_bundle}" > "${evidence_dir}/codesign.txt" 2>&1
-codesign_status=$?
-set -e
+codesign_status=0
+codesign -d --verbose=4 "${app_bundle}" > "${evidence_dir}/codesign.txt" 2>&1 || codesign_status=$?
 if [[ "${codesign_status}" == "0" ]]; then
   echo "error: full-engine app was unexpectedly signed" >&2
   exit 1
 fi
 echo "unsigned=yes" | tee -a "${evidence_dir}/codesign.txt"
 
-if ! grep -q '_main' "${evidence_dir}/executable-global-symbols.txt"; then
-  echo "error: executable lacks the bounded iOS process entry point" >&2
-  exit 1
-fi
-if ! grep -q '_SelacoIOSPlatformSourceSelectionBoundary' "${evidence_dir}/executable-global-symbols.txt"; then
-  echo "error: executable lacks the dedicated iOS platform boundary symbol" >&2
-  exit 1
-fi
+for retained_symbol in _main _Args _Video _PerfToSec; do
+  if ! grep -q "${retained_symbol}" "${evidence_dir}/executable-global-symbols.txt"; then
+    echo "error: executable lacks retained iOS runtime symbol ${retained_symbol}" >&2
+    exit 1
+  fi
+done
 
 preserved_app="${artifact_dir}/Selaco-full-engine-unsigned.app"
 cp -R "${app_bundle}" "${preserved_app}"
