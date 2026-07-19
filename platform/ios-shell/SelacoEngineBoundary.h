@@ -6,7 +6,7 @@ extern "C" {
 
 const char *SelacoIOSGameSignature(void);
 const char *SelacoIOSEngineVersion(void);
-bool SelacoIOSQueueSelfTest(void);
+int SelacoIOSEngineSelfTest(void);
 
 #ifdef __cplusplus
 }
