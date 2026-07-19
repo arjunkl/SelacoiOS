@@ -21,10 +21,22 @@ if(NOT CMAKE_OSX_ARCHITECTURES STREQUAL "arm64")
 endif()
 
 set(GZSELACO_SOURCE_DIR "" CACHE PATH "Path to the pinned GZSelaco source checkout")
+set(MOLTENVK_LIBRARY "" CACHE FILEPATH "Path to the physical-device arm64 libMoltenVK.a")
+set(MOLTENVK_INCLUDE_DIR "" CACHE PATH "Path to the MoltenVK package include directory")
+
 if(NOT GZSELACO_SOURCE_DIR)
   message(FATAL_ERROR "GZSELACO_SOURCE_DIR is required")
 endif()
+if(NOT MOLTENVK_LIBRARY OR NOT EXISTS "${MOLTENVK_LIBRARY}")
+  message(FATAL_ERROR "MOLTENVK_LIBRARY must identify an existing libMoltenVK.a")
+endif()
+if(NOT MOLTENVK_INCLUDE_DIR OR NOT EXISTS "${MOLTENVK_INCLUDE_DIR}/vulkan/vulkan.h")
+  message(FATAL_ERROR "MOLTENVK_INCLUDE_DIR must contain vulkan/vulkan.h")
+endif()
+
 get_filename_component(GZSELACO_SOURCE_DIR "${GZSELACO_SOURCE_DIR}" ABSOLUTE)
+get_filename_component(MOLTENVK_LIBRARY "${MOLTENVK_LIBRARY}" ABSOLUTE)
+get_filename_component(MOLTENVK_INCLUDE_DIR "${MOLTENVK_INCLUDE_DIR}" ABSOLUTE)
 
 foreach(required_path
     src/version.h
@@ -37,19 +49,27 @@ endforeach()
 
 find_library(FOUNDATION_FRAMEWORK Foundation REQUIRED)
 find_library(COREGRAPHICS_FRAMEWORK CoreGraphics REQUIRED)
+find_library(IOSURFACE_FRAMEWORK IOSurface REQUIRED)
 find_library(UIKIT_FRAMEWORK UIKit REQUIRED)
 find_library(QUARTZCORE_FRAMEWORK QuartzCore REQUIRED)
 find_library(METAL_FRAMEWORK Metal REQUIRED)
 find_library(METALKIT_FRAMEWORK MetalKit REQUIRED)
 
+add_library(MoltenVK::MoltenVK STATIC IMPORTED GLOBAL)
+set_target_properties(MoltenVK::MoltenVK PROPERTIES
+  IMPORTED_LOCATION "${MOLTENVK_LIBRARY}"
+  INTERFACE_INCLUDE_DIRECTORIES "${MOLTENVK_INCLUDE_DIR}")
+
 add_library(selaco-engine-boundary STATIC
   "${CMAKE_CURRENT_SOURCE_DIR}/SelacoEngineBoundary.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/SelacoVulkanBoundary.cpp"
   "${GZSELACO_SOURCE_DIR}/src/common/thirdparty/superfasthash.cpp")
 
 target_include_directories(selaco-engine-boundary PRIVATE
   "${CMAKE_CURRENT_SOURCE_DIR}"
   "${GZSELACO_SOURCE_DIR}/src"
-  "${GZSELACO_SOURCE_DIR}/src/common/thirdparty")
+  "${GZSELACO_SOURCE_DIR}/src/common/thirdparty"
+  "${MOLTENVK_INCLUDE_DIR}")
 
 target_compile_options(selaco-engine-boundary PRIVATE
   -Wall
@@ -70,8 +90,10 @@ target_compile_options(SelacoiOSShell PRIVATE
 
 target_link_libraries(SelacoiOSShell PRIVATE
   selaco-engine-boundary
+  MoltenVK::MoltenVK
   "${FOUNDATION_FRAMEWORK}"
   "${COREGRAPHICS_FRAMEWORK}"
+  "${IOSURFACE_FRAMEWORK}"
   "${UIKIT_FRAMEWORK}"
   "${QUARTZCORE_FRAMEWORK}"
   "${METAL_FRAMEWORK}"
