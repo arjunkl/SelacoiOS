@@ -7,7 +7,8 @@ source "${repo_root}/DEPENDENCY_TRIAL_PINS.env"
 
 evidence_dir="${repo_root}/build/evidence/m0-zmusic-ios"
 artifact_dir="${repo_root}/build/artifacts/m0-zmusic-ios"
-rm -rf "${evidence_dir}" "${artifact_dir}"
+artifact_zip="${repo_root}/build/artifacts/zmusic-ios-arm64-probe.zip"
+rm -rf "${evidence_dir}" "${artifact_dir}" "${artifact_zip}"
 mkdir -p "${evidence_dir}" "${artifact_dir}"
 exec > >(tee "${evidence_dir}/probe.log") 2>&1
 
@@ -158,10 +159,10 @@ cp "${zmusic_library}" "${artifact_dir}/libzmusic-ios-arm64.a"
 shasum -a 256 "${artifact_dir}/libzmusic-ios-arm64.a" | tee "${evidence_dir}/library-sha256.txt"
 shasum -a 256 "${contract_object}" | tee "${evidence_dir}/api-contract-sha256.txt"
 
-ditto -c -k --sequesterRsrc \
+ditto -c -k --sequesterRsrc --keepParent \
   "${artifact_dir}" \
-  "${artifact_dir}/zmusic-ios-arm64-probe.zip"
-shasum -a 256 "${artifact_dir}/zmusic-ios-arm64-probe.zip" | tee "${evidence_dir}/artifact-zip-sha256.txt"
+  "${artifact_zip}"
+shasum -a 256 "${artifact_zip}" | tee "${evidence_dir}/artifact-zip-sha256.txt"
 
 cat > "${evidence_dir}/probe-manifest.txt" <<MANIFEST
 repository=${ZMUSIC_REPOSITORY}
