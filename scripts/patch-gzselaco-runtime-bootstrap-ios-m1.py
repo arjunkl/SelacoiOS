@@ -103,31 +103,32 @@ def main() -> int:
 
     replace_once(
         destination,
+        '#define VK_USE_PLATFORM_METAL_EXT 1\n#include <vulkan/vulkan.h>\n',
+        '#define VK_USE_PLATFORM_METAL_EXT 1\n#include "zvulkan/volk/volk.h"\n',
+        "use Volk as the sole Vulkan declaration surface",
+    )
+    replace_once(
+        destination,
         '#include <cstring>\n',
         '#include <cstring>\n#include <dlfcn.h>\n',
         "include the dynamic loader API",
     )
     replace_once(
         destination,
-        '#include "zstring.h"\n',
-        '#include "zstring.h"\n#include "zvulkan/volk/volk.h"\n',
-        "include the engine Vulkan dispatch loader",
-    )
-    replace_once(
-        destination,
         '    WriteBreadcrumb(@"phase=vulkan_enumerate_instance_extensions");\n'
         '    uint32_t extensionCount = 0;\n',
         '    WriteBreadcrumb(@"phase=vulkan_load_dynamic_moltenvk");\n'
-        '    NSString *frameworkBinary = [[NSBundle mainBundle] '\
-        'pathForResource:@"MoltenVK" ofType:nil '\
-        'inDirectory:@"Frameworks/MoltenVK.framework"];\n'
-        '    if (frameworkBinary == nil) {\n'
+        '    NSString *frameworkBinary = [[[NSBundle mainBundle] bundlePath] '
+        'stringByAppendingPathComponent:@"Frameworks/MoltenVK.framework/MoltenVK"];\n'
+        '    if (![[NSFileManager defaultManager] fileExistsAtPath:frameworkBinary]) {\n'
         '        output.detail = "embedded MoltenVK.framework binary is missing";\n'
         '        return output;\n'
         '    }\n'
+        '    dlerror();\n'
         '    void *moltenVKHandle = dlopen(frameworkBinary.fileSystemRepresentation, RTLD_NOW | RTLD_LOCAL);\n'
         '    if (moltenVKHandle == nullptr) {\n'
-        '        output.detail = dlerror() != nullptr ? dlerror() : "dlopen MoltenVK failed";\n'
+        '        const char *loaderError = dlerror();\n'
+        '        output.detail = loaderError != nullptr ? loaderError : "dlopen MoltenVK failed";\n'
         '        return output;\n'
         '    }\n'
         '    auto getInstanceProcAddr = reinterpret_cast<PFN_vkGetInstanceProcAddr>(\n'
