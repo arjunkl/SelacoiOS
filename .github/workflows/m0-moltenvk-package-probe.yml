@@ -8,11 +8,6 @@ on:
       - "MOLTENVK_PIN.env"
       - "scripts/m0-moltenvk-package-probe.sh"
       - ".github/workflows/m0-moltenvk-package-probe.yml"
-  pull_request:
-    paths:
-      - "MOLTENVK_PIN.env"
-      - "scripts/m0-moltenvk-package-probe.sh"
-      - ".github/workflows/m0-moltenvk-package-probe.yml"
   workflow_dispatch:
 
 permissions:
