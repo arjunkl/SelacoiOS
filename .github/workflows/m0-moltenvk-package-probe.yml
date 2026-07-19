@@ -1,0 +1,49 @@
+name: Milestone 0 MoltenVK Package Probe
+
+on:
+  push:
+    branches:
+      - "agent/**"
+    paths:
+      - "MOLTENVK_PIN.env"
+      - "scripts/m0-moltenvk-package-probe.sh"
+      - ".github/workflows/m0-moltenvk-package-probe.yml"
+  pull_request:
+    paths:
+      - "MOLTENVK_PIN.env"
+      - "scripts/m0-moltenvk-package-probe.sh"
+      - ".github/workflows/m0-moltenvk-package-probe.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: m0-moltenvk-package-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  official-ios-package:
+    name: official MoltenVK iPhoneOS package
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - name: Check out SelacoiOS
+        uses: actions/checkout@v4
+
+      - name: Validate probe syntax
+        run: bash -n scripts/m0-moltenvk-package-probe.sh
+
+      - name: Resolve, hash, and inspect MoltenVK package
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: bash scripts/m0-moltenvk-package-probe.sh
+
+      - name: Preserve MoltenVK package evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selaco-m0-moltenvk-package-evidence
+          path: build/evidence/m0-moltenvk-package
+          if-no-files-found: warn
+          retention-days: 14
