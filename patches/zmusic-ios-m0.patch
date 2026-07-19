@@ -1,8 +1,7 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index f35dadb..0000000 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -130,8 +130,10 @@ else()
+@@ -130,7 +130,9 @@ else()
  	add_compile_options("-ffp-contract=off")
  
  	if(APPLE)
