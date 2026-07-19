@@ -21,17 +21,22 @@ def replace_once(path: pathlib.Path, old: str, new: str, description: str) -> No
 def main() -> int:
     if len(sys.argv) != 3:
         print(
-            "usage: patch-gzselaco-ios-m0.py <GZSelaco source> <iOS platform stub>",
+            "usage: patch-gzselaco-ios-m0.py <GZSelaco source> <iOS overlay platform stub>",
             file=sys.stderr,
         )
         return 2
 
     root = pathlib.Path(sys.argv[1]).resolve()
     platform_stub = pathlib.Path(sys.argv[2]).resolve()
+    overlay_dir = platform_stub.parent
+    framebuffer_header = overlay_dir / "gl_sysfb.h"
+    framebuffer_source = overlay_dir / "i_framebuffer.cpp"
+
     if not (root / "CMakeLists.txt").is_file() or not (root / "src" / "CMakeLists.txt").is_file():
         raise RuntimeError(f"not a GZSelaco source checkout: {root}")
-    if not platform_stub.is_file():
-        raise RuntimeError(f"iOS platform stub is missing: {platform_stub}")
+    for overlay_file in (platform_stub, framebuffer_header, framebuffer_source):
+        if not overlay_file.is_file():
+            raise RuntimeError(f"iOS platform overlay is missing: {overlay_file}")
 
     root_cmake = root / "CMakeLists.txt"
     replace_once(
@@ -134,7 +139,8 @@ def main() -> int:
         '\tcommon/platform/posix/cocoa/st_console.mm\n'
         '\tcommon/platform/posix/cocoa/st_start.mm )\n'
         'set( PLAT_IOS_SOURCES\n'
-        '\tcommon/platform/ios/i_platform_stub.cpp )\n',
+        '\tcommon/platform/ios/i_platform_stub.cpp\n'
+        '\tcommon/platform/ios/i_framebuffer.cpp )\n',
         "declare the dedicated iOS platform source set",
     )
     replace_once(
@@ -223,9 +229,11 @@ def main() -> int:
         encoding="utf-8",
     )
 
-    destination = root / "src" / "common" / "platform" / "ios" / "i_platform_stub.cpp"
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(platform_stub, destination)
+    ios_destination = root / "src" / "common" / "platform" / "ios"
+    ios_destination.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(platform_stub, ios_destination / "i_platform_stub.cpp")
+    shutil.copyfile(framebuffer_header, ios_destination / "gl_sysfb.h")
+    shutil.copyfile(framebuffer_source, ios_destination / "i_framebuffer.cpp")
     return 0
 
 
