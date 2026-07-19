@@ -35,10 +35,11 @@ jobs:
       - name: Check out SelacoiOS
         uses: actions/checkout@v4
 
-      - name: Validate probe syntax and patch
+      - name: Validate probe inputs
         run: |
           bash -n scripts/m0-zmusic-ios-probe.sh
-          git apply --check --unsafe-paths patches/zmusic-ios-m0.patch || true
+          test -s patches/zmusic-ios-m0.patch
+          test -s probes/zmusic-api-contract.cpp
 
       - name: Build ZMusic and compile API contract
         run: bash scripts/m0-zmusic-ios-probe.sh
@@ -60,5 +61,6 @@ jobs:
           path: |
             build/artifacts/m0-zmusic-ios/libzmusic-ios-arm64.a
             build/artifacts/m0-zmusic-ios/zmusic-api-contract.o
+            build/artifacts/zmusic-ios-arm64-probe.zip
           if-no-files-found: error
           retention-days: 14
