@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Remove desktop OpenGL translation units from the bounded iOS compile target."""
+"""Apply Vulkan-only and iOS-safe link selection to the bounded engine target."""
 
 from __future__ import annotations
 
@@ -71,6 +71,44 @@ def main() -> int:
         marker,
         removal_block,
         "insert the Vulkan-only iOS source selection",
+    )
+
+    clock_block = (
+        "if( UNIX )\n"
+        "\tCHECK_LIBRARY_EXISTS( rt clock_gettime \"\" CLOCK_GETTIME_IN_RT )\n"
+        "\tif( NOT CLOCK_GETTIME_IN_RT )\n"
+        "\t\tCHECK_FUNCTION_EXISTS( clock_gettime CLOCK_GETTIME_EXISTS )\n"
+        "\t\tif( NOT CLOCK_GETTIME_EXISTS )\n"
+        "\t\t\tmessage( STATUS \"Could not find clock_gettime. Timing statistics will not be available.\" )\n"
+        "\t\t\tadd_definitions( -DNO_CLOCK_GETTIME )\n"
+        "\t\tendif()\n"
+        "\telse()\n"
+        "\t\tlist( APPEND PROJECT_LIBRARIES rt )\n"
+        "\tendif()\n"
+        "endif()\n"
+    )
+    ios_clock_block = (
+        "if( UNIX AND NOT CMAKE_SYSTEM_NAME STREQUAL \"iOS\" )\n"
+        "\tCHECK_LIBRARY_EXISTS( rt clock_gettime \"\" CLOCK_GETTIME_IN_RT )\n"
+        "\tif( NOT CLOCK_GETTIME_IN_RT )\n"
+        "\t\tCHECK_FUNCTION_EXISTS( clock_gettime CLOCK_GETTIME_EXISTS )\n"
+        "\t\tif( NOT CLOCK_GETTIME_EXISTS )\n"
+        "\t\t\tmessage( STATUS \"Could not find clock_gettime. Timing statistics will not be available.\" )\n"
+        "\t\t\tadd_definitions( -DNO_CLOCK_GETTIME )\n"
+        "\t\tendif()\n"
+        "\telse()\n"
+        "\t\tlist( APPEND PROJECT_LIBRARIES rt )\n"
+        "\tendif()\n"
+        "endif()\n"
+        "if(CMAKE_SYSTEM_NAME STREQUAL \"iOS\")\n"
+        "\tmessage(STATUS \"SelacoiOS: librt excluded; clock_gettime is provided by iOS\")\n"
+        "endif()\n"
+    )
+    replace_once(
+        src_cmake,
+        clock_block,
+        ios_clock_block,
+        "exclude the nonexistent librt dependency from iOS",
     )
     return 0
 
