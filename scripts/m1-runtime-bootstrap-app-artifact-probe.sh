@@ -76,9 +76,21 @@ text = text.replace(
 )
 text = text.replace(
     "physical_execution=not_tested\n",
-    "runtime_lifecycle=uikit_first_crash_localization_not_executed\n"
+    "runtime_lifecycle=uikit_first_dynamic_moltenvk_not_executed\n"
+    "vulkan_loader=volk_custom_dynamic_framework_not_executed\n"
     "vulkan_metal_probe=delayed_breadcrumbed_not_executed\n"
     "physical_execution=not_tested\n",
+    1,
+)
+
+dependency_marker = '    if dependency.startswith(("/System/Library/", "/usr/lib/")):\n        continue\n'
+if text.count(dependency_marker) != 1:
+    raise SystemExit("Milestone 0 dynamic-dependency validator changed")
+text = text.replace(
+    dependency_marker,
+    dependency_marker
+    + '    if dependency == "@rpath/MoltenVK.framework/MoltenVK":\n'
+      '        continue\n',
     1,
 )
 
@@ -100,8 +112,8 @@ info.update({
     "CFBundleIdentifier": "am.arjunkl.selacoios.runtime.m1",
     "CFBundleName": "SelacoiOS Diagnostics",
     "CFBundleDisplayName": "SelacoiOS Diagnostics",
-    "CFBundleShortVersionString": "0.2.0",
-    "CFBundleVersion": "2",
+    "CFBundleShortVersionString": "0.3.0",
+    "CFBundleVersion": "3",
     "UIFileSharingEnabled": True,
     "LSSupportsOpeningDocumentsInPlace": True,
     "UIRequiresFullScreen": True,
@@ -128,8 +140,14 @@ bash "${driver}"
 
 runtime_app="${artifact_dir}/Selaco-runtime-bootstrap-unsigned.app"
 runtime_executable="${runtime_app}/Selaco"
+moltenvk_framework="${runtime_app}/Frameworks/MoltenVK.framework"
+moltenvk_binary="${moltenvk_framework}/MoltenVK"
 if [[ ! -f "${runtime_executable}" ]]; then
   echo "error: runtime bootstrap executable was not preserved" >&2
+  exit 1
+fi
+if [[ ! -f "${moltenvk_binary}" ]]; then
+  echo "error: runtime bootstrap app lacks embedded MoltenVK.framework" >&2
   exit 1
 fi
 
@@ -138,12 +156,26 @@ if ! grep -Fq 'SelacoiOS Crash-Localization Build' "${evidence_dir}/runtime-stri
   echo "error: final executable lacks the crash-localization status marker" >&2
   exit 1
 fi
+if ! grep -Fq 'vulkan_load_dynamic_moltenvk' "${evidence_dir}/runtime-strings.txt"; then
+  echo "error: final executable lacks the dynamic MoltenVK breadcrumb" >&2
+  exit 1
+fi
 if ! grep -Fq 'No swapchain or game loop started' "${evidence_dir}/runtime-strings.txt"; then
   echo "error: final executable lacks the bounded runtime stop marker" >&2
   exit 1
 fi
 if ! grep -Fq 'phase=main_entered' "${evidence_dir}/runtime-strings.txt"; then
   echo "error: final executable lacks the launch breadcrumb marker" >&2
+  exit 1
+fi
+
+file "${moltenvk_binary}" | tee "${evidence_dir}/embedded-moltenvk-file.txt"
+xcrun lipo -info "${moltenvk_binary}" | tee "${evidence_dir}/embedded-moltenvk-architecture.txt"
+xcrun vtool -show-build "${moltenvk_binary}" | tee "${evidence_dir}/embedded-moltenvk-build-version.txt"
+otool -D "${moltenvk_binary}" | tee "${evidence_dir}/embedded-moltenvk-install-name.txt"
+otool -L "${runtime_executable}" | tee "${evidence_dir}/runtime-linked-libraries.txt"
+if ! grep -Fq '@rpath/MoltenVK.framework/MoltenVK' "${evidence_dir}/runtime-linked-libraries.txt"; then
+  echo "error: runtime executable is not linked to embedded MoltenVK.framework" >&2
   exit 1
 fi
 
@@ -162,11 +194,16 @@ runtime_ipa="${artifact_dir}/Selaco-runtime-bootstrap-unsigned.ipa"
   ditto -c -k --sequesterRsrc --keepParent Payload "${runtime_ipa}"
 )
 
-if ! unzip -Z1 "${runtime_ipa}" | grep -Fxq 'Payload/Selaco.app/Selaco'; then
+unzip -Z1 "${runtime_ipa}" > "${evidence_dir}/ipa-contents.txt"
+if ! grep -Fxq 'Payload/Selaco.app/Selaco' "${evidence_dir}/ipa-contents.txt"; then
   echo "error: unsigned IPA lacks Payload/Selaco.app/Selaco" >&2
   exit 1
 fi
-if unzip -Z1 "${runtime_ipa}" | grep -Eiq '\.(mobileprovision|p12)$'; then
+if ! grep -Fxq 'Payload/Selaco.app/Frameworks/MoltenVK.framework/MoltenVK' "${evidence_dir}/ipa-contents.txt"; then
+  echo "error: unsigned IPA lacks embedded MoltenVK.framework" >&2
+  exit 1
+fi
+if grep -Eiq '\.(mobileprovision|p12)$' "${evidence_dir}/ipa-contents.txt"; then
   echo "error: unsigned IPA unexpectedly contains signing material" >&2
   exit 1
 fi
@@ -175,12 +212,13 @@ ipa_sha256="$(shasum -a 256 "${runtime_ipa}" | awk '{print $1}')"
 ipa_size="$(stat -f '%z' "${runtime_ipa}")"
 printf '%s  %s\n' "${ipa_sha256}" "$(basename "${runtime_ipa}")" | tee "${evidence_dir}/ipa-sha256.txt"
 echo "ipa_size=${ipa_size}" | tee "${evidence_dir}/ipa-size.txt"
-unzip -Z1 "${runtime_ipa}" > "${evidence_dir}/ipa-contents.txt"
 
-echo "runtime_status_ui=uikit_first_crash_localization" >> "${evidence_dir}/probe-manifest.txt"
+echo "runtime_status_ui=uikit_first_dynamic_moltenvk" >> "${evidence_dir}/probe-manifest.txt"
 echo "persistent_result_file=Documents/Selaco/runtime-bootstrap.txt" >> "${evidence_dir}/probe-manifest.txt"
 echo "bundle_identifier=${bundle_identifier}" >> "${evidence_dir}/probe-manifest.txt"
-echo "bundle_version=0.2.0(2)" >> "${evidence_dir}/probe-manifest.txt"
+echo "bundle_version=0.3.0(3)" >> "${evidence_dir}/probe-manifest.txt"
+echo "moltenvk_linkage=dynamic_embedded_framework" >> "${evidence_dir}/probe-manifest.txt"
+echo "volk_initialization=custom_from_embedded_vkGetInstanceProcAddr" >> "${evidence_dir}/probe-manifest.txt"
 echo "unsigned_ipa=Selaco-runtime-bootstrap-unsigned.ipa" >> "${evidence_dir}/probe-manifest.txt"
 echo "unsigned_ipa_sha256=${ipa_sha256}" >> "${evidence_dir}/probe-manifest.txt"
 echo "unsigned_ipa_size=${ipa_size}" >> "${evidence_dir}/probe-manifest.txt"
