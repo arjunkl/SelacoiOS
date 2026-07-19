@@ -1,0 +1,15 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index f35dadb..0000000 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -130,8 +130,10 @@ else()
+ 	add_compile_options("-ffp-contract=off")
+ 
+ 	if(APPLE)
+-		set(CMAKE_OSX_DEPLOYMENT_TARGET "10.9")
++		if(NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
++			set(CMAKE_OSX_DEPLOYMENT_TARGET "10.9")
++		endif()
+ 		if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+ 			# With standard Apple tools -stdlib=libc++ needs to be specified in order to get
+ 			# C++11 support using SDKs 10.7 and 10.8.
