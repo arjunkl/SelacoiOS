@@ -158,7 +158,7 @@ for required_marker in \
   'vkCreateSwapchainKHR' \
   'vkQueuePresentKHR' \
   'phase=m2_first_frame_presented' \
-  'No GZSelaco game loop started'; do
+  'phase=m2_swapchain_resources_ready'; do
   if ! grep -Fq "${required_marker}" "${evidence_dir}/runtime-strings.txt"; then
     echo "error: final executable lacks Milestone 2 marker: ${required_marker}" >&2
     exit 1
