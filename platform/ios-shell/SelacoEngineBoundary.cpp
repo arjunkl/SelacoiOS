@@ -1,9 +1,10 @@
 #include "SelacoEngineBoundary.h"
 
+#include <cstddef>
+#include <cstring>
+
 #include "superfasthash.h"
 #include "version.h"
-
-#include <cstring>
 
 #define SELACOIOS_STRINGIFY_INNER(value) #value
 #define SELACOIOS_STRINGIFY(value) SELACOIOS_STRINGIFY_INNER(value)
