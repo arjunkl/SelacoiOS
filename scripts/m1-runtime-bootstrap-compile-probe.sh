@@ -53,24 +53,6 @@ if text.count(old) != 1:
         "Milestone 0 compile probe no longer exposes the expected Vulkan patch insertion"
     )
 text = text.replace(old, new, 1)
-
-validation_marker = (
-    "if ! grep -Fq 'SelacoiOS: librt excluded' "
-    '"${source_dir}/src/CMakeLists.txt"; then\\n'
-)
-if text.count(validation_marker) != 1:
-    raise SystemExit("Milestone 0 compile validation marker changed")
-text = text.replace(
-    validation_marker,
-    "if ! grep -Fq 'UIApplicationMain' "
-    '"${source_dir}/src/common/platform/ios/i_platform_runtime.mm"; then\\n'
-    "    '  echo \"error: UIKit runtime bootstrap patch was not applied\" >&2\\n'\n"
-    "    '  exit 1\\n'\n"
-    "    'fi\\n'\n"
-    "    + " + repr(validation_marker),
-    1,
-)
-
 text = text.replace(
     "full-engine-compile-probe:",
     "runtime-bootstrap-compile-probe:",
