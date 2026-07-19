@@ -7,6 +7,7 @@ on:
     paths:
       - "DEPENDENCY_TRIAL_PINS.env"
       - "scripts/patch-zmusic-ios-m0.py"
+      - "overlays/zmusic-ios/music_fluidsynth_stub.cpp"
       - "probes/zmusic-api-contract.cpp"
       - "scripts/m0-zmusic-ios-probe.sh"
       - ".github/workflows/m0-zmusic-ios-probe.yml"
@@ -14,6 +15,7 @@ on:
     paths:
       - "DEPENDENCY_TRIAL_PINS.env"
       - "scripts/patch-zmusic-ios-m0.py"
+      - "overlays/zmusic-ios/music_fluidsynth_stub.cpp"
       - "probes/zmusic-api-contract.cpp"
       - "scripts/m0-zmusic-ios-probe.sh"
       - ".github/workflows/m0-zmusic-ios-probe.yml"
@@ -39,6 +41,7 @@ jobs:
         run: |
           bash -n scripts/m0-zmusic-ios-probe.sh
           python3 -m py_compile scripts/patch-zmusic-ios-m0.py
+          test -s overlays/zmusic-ios/music_fluidsynth_stub.cpp
           test -s probes/zmusic-api-contract.cpp
 
       - name: Build ZMusic and compile API contract
