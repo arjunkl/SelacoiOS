@@ -1,0 +1,60 @@
+name: Milestone 0 iOS Shell Link Probe
+
+on:
+  push:
+    branches:
+      - "agent/**"
+    paths:
+      - "SOURCE_PIN.env"
+      - "platform/ios-shell/**"
+      - "scripts/m0-ios-shell-link-probe.sh"
+      - ".github/workflows/m0-ios-shell-link-probe.yml"
+  pull_request:
+    paths:
+      - "SOURCE_PIN.env"
+      - "platform/ios-shell/**"
+      - "scripts/m0-ios-shell-link-probe.sh"
+      - ".github/workflows/m0-ios-shell-link-probe.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: m0-ios-shell-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  arm64-iphoneos-shell:
+    name: unsigned arm64 iPhoneOS app shell
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - name: Check out SelacoiOS
+        uses: actions/checkout@v4
+
+      - name: Validate probe syntax and plist
+        run: |
+          bash -n scripts/m0-ios-shell-link-probe.sh
+          plutil -lint platform/ios-shell/Info.plist
+
+      - name: Configure, link, and validate iOS shell
+        run: bash scripts/m0-ios-shell-link-probe.sh
+
+      - name: Preserve shell evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selaco-m0-ios-shell-evidence
+          path: build/evidence/m0-ios-shell
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Preserve unsigned app bundle
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selaco-m0-ios-shell-unsigned-app
+          path: build/artifacts/m0-ios-shell/SelacoiOSShell-unsigned-app.zip
+          if-no-files-found: error
+          retention-days: 14
