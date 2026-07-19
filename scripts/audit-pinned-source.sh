@@ -49,7 +49,7 @@ assert_contains "src/version.h" '#define GAMESIG "SELACO"' "Selaco-specific game
 assert_contains "src/version.h" '#define ENG_MAJOR 4' "declared GZDoom engine lineage"
 assert_contains "src/version.h" '#define ENG_MINOR 13' "GZDoom 4.13 engine baseline"
 
-platform_ios_count="$(git -C "${source_dir}" ls-files | grep -E -i '(^|/)(ios|iphone)(/|\.|_)' | wc -l | tr -d ' ')"
+platform_ios_count="$({ git -C "${source_dir}" ls-files | grep -E -i '(^|/)(ios|iphone)(/|\.|_)' || true; } | wc -l | tr -d ' ')"
 if [[ "${platform_ios_count}" == "0" ]]; then
   echo "observed: no dedicated iOS platform layer is present in the pinned source"
 else
