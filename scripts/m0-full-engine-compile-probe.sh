@@ -73,7 +73,7 @@ log_path = pathlib.Path(sys.argv[1])
 output_path = pathlib.Path(sys.argv[2])
 lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
 source_error = re.compile(
-    r"(?:^|\s)([^:\s]+\.(?:c|cc|cpp|cxx|m|mm)):(\d+)(?::(\d+))?:\s+(?:fatal\s+)?error:"
+    r"(?:^|\s)([^:\s]+\.(?:c|cc|cpp|cxx|m|mm|h|hh|hpp|hxx)):(\d+)(?::(\d+))?:\s+(?:fatal\s+)?error:"
 )
 match_index = None
 match = None
@@ -99,7 +99,7 @@ if match_index is None or match is None:
         + "\n",
         encoding="utf-8",
     )
-    raise SystemExit("build failure was not a source translation-unit diagnostic")
+    raise SystemExit("build failure was not a source or header compiler diagnostic")
 
 start = max(0, match_index - 15)
 end = min(len(lines), match_index + 35)
