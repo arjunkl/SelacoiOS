@@ -1,0 +1,65 @@
+name: Milestone 0 libvpx iOS Probe
+
+on:
+  push:
+    branches:
+      - "agent/**"
+    paths:
+      - "SOURCE_PIN.env"
+      - "DEPENDENCY_TRIAL_PINS.env"
+      - "probes/libvpx-decoder-contract.cpp"
+      - "scripts/m0-libvpx-ios-probe.sh"
+      - ".github/workflows/m0-libvpx-ios-probe.yml"
+  pull_request:
+    paths:
+      - "SOURCE_PIN.env"
+      - "DEPENDENCY_TRIAL_PINS.env"
+      - "probes/libvpx-decoder-contract.cpp"
+      - "scripts/m0-libvpx-ios-probe.sh"
+      - ".github/workflows/m0-libvpx-ios-probe.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: m0-libvpx-ios-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  arm64-iphoneos-libvpx:
+    name: decoder-only libvpx arm64 iPhoneOS
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - name: Check out SelacoiOS
+        uses: actions/checkout@v4
+
+      - name: Validate libvpx probe inputs
+        run: |
+          bash -n scripts/m0-libvpx-ios-probe.sh
+          test -s probes/libvpx-decoder-contract.cpp
+
+      - name: Build and link libvpx decoder boundary
+        run: bash scripts/m0-libvpx-ios-probe.sh
+
+      - name: Preserve libvpx evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selaco-m0-libvpx-ios-evidence
+          path: build/evidence/m0-libvpx-ios
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Preserve libvpx arm64 package
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selaco-m0-libvpx-ios-arm64
+          path: |
+            build/artifacts/m0-libvpx-ios/libvpx-ios-arm64.a
+            build/artifacts/m0-libvpx-ios/vpx-headers
+            build/artifacts/libvpx-ios-arm64-probe.zip
+          if-no-files-found: error
+          retention-days: 14
