@@ -1,0 +1,49 @@
+name: Milestone 0 iOS Core Compile Probe
+
+on:
+  push:
+    branches:
+      - "agent/**"
+    paths:
+      - "SOURCE_PIN.env"
+      - "cmake/ios-core-probe/**"
+      - "scripts/m0-ios-core-compile-probe.sh"
+      - ".github/workflows/m0-ios-core-compile-probe.yml"
+  pull_request:
+    paths:
+      - "SOURCE_PIN.env"
+      - "cmake/ios-core-probe/**"
+      - "scripts/m0-ios-core-compile-probe.sh"
+      - ".github/workflows/m0-ios-core-compile-probe.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: m0-ios-core-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  arm64-iphoneos-core:
+    name: arm64 iPhoneOS core boundary
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - name: Check out SelacoiOS
+        uses: actions/checkout@v4
+
+      - name: Validate probe syntax
+        run: bash -n scripts/m0-ios-core-compile-probe.sh
+
+      - name: Configure and compile pinned GZSelaco core slice
+        run: bash scripts/m0-ios-core-compile-probe.sh
+
+      - name: Preserve iOS compile evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selaco-m0-ios-core-evidence
+          path: build/evidence/m0-ios-core
+          if-no-files-found: warn
+          retention-days: 14
