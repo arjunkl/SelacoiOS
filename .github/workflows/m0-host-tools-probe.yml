@@ -9,12 +9,6 @@ on:
       - "cmake/host-tools/**"
       - "scripts/m0-host-tools-probe.sh"
       - ".github/workflows/m0-host-tools-probe.yml"
-  pull_request:
-    paths:
-      - "SOURCE_PIN.env"
-      - "cmake/host-tools/**"
-      - "scripts/m0-host-tools-probe.sh"
-      - ".github/workflows/m0-host-tools-probe.yml"
   workflow_dispatch:
 
 permissions:
