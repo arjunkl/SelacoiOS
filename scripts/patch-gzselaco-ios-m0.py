@@ -79,6 +79,19 @@ def main() -> int:
     src_cmake = root / "src" / "CMakeLists.txt"
     replace_once(
         src_cmake,
+        'add_definitions( -DTHIS_IS_GZDOOM )\n',
+        'add_definitions( -DTHIS_IS_GZDOOM )\n'
+        'if(CMAKE_SYSTEM_NAME STREQUAL "iOS")\n'
+        '\t# CMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY makes the historical\n'
+        '\t# function checks appear to find these non-POSIX names. Force the\n'
+        '\t# intended aliases and declarations for the real device compile.\n'
+        '\tadd_definitions(-Dstricmp=strcasecmp -Dstrnicmp=strncasecmp)\n'
+        '\tadd_compile_options(-include strings.h)\n'
+        'endif()\n',
+        "provide POSIX case-insensitive string aliases on iOS",
+    )
+    replace_once(
+        src_cmake,
         'if( APPLE )\n    option( OSX_COCOA_BACKEND "Use native Cocoa backend instead of SDL" ON )\nendif()\n',
         'if( APPLE AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS" )\n'
         '    option( OSX_COCOA_BACKEND "Use native Cocoa backend instead of SDL" ON )\n'
