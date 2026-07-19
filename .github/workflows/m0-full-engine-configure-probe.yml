@@ -11,8 +11,10 @@ on:
       - "cmake/host-tools/**"
       - "overlays/gzselaco-ios/**"
       - "overlays/zmusic-ios/**"
+      - "probes/libvpx-decoder-contract.cpp"
       - "scripts/patch-gzselaco-ios-m0.py"
       - "scripts/patch-zmusic-ios-m0.py"
+      - "scripts/m0-libvpx-ios-probe.sh"
       - "scripts/m0-full-engine-configure-probe.sh"
       - ".github/workflows/m0-full-engine-configure-probe.yml"
   pull_request:
@@ -23,8 +25,10 @@ on:
       - "cmake/host-tools/**"
       - "overlays/gzselaco-ios/**"
       - "overlays/zmusic-ios/**"
+      - "probes/libvpx-decoder-contract.cpp"
       - "scripts/patch-gzselaco-ios-m0.py"
       - "scripts/patch-zmusic-ios-m0.py"
+      - "scripts/m0-libvpx-ios-probe.sh"
       - "scripts/m0-full-engine-configure-probe.sh"
       - ".github/workflows/m0-full-engine-configure-probe.yml"
   workflow_dispatch:
@@ -48,10 +52,12 @@ jobs:
       - name: Validate configure probe inputs
         run: |
           bash -n scripts/m0-full-engine-configure-probe.sh
+          bash -n scripts/m0-libvpx-ios-probe.sh
           python3 -m py_compile scripts/patch-gzselaco-ios-m0.py
           python3 -m py_compile scripts/patch-zmusic-ios-m0.py
           test -s overlays/gzselaco-ios/i_platform_stub.cpp
           test -s overlays/zmusic-ios/music_fluidsynth_stub.cpp
+          test -s probes/libvpx-decoder-contract.cpp
 
       - name: Configure full engine and classify first boundary
         run: bash scripts/m0-full-engine-configure-probe.sh
