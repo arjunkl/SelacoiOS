@@ -10,13 +10,6 @@ on:
       - "probes/libvpx-decoder-contract.cpp"
       - "scripts/m0-libvpx-ios-probe.sh"
       - ".github/workflows/m0-libvpx-ios-probe.yml"
-  pull_request:
-    paths:
-      - "SOURCE_PIN.env"
-      - "DEPENDENCY_TRIAL_PINS.env"
-      - "probes/libvpx-decoder-contract.cpp"
-      - "scripts/m0-libvpx-ios-probe.sh"
-      - ".github/workflows/m0-libvpx-ios-probe.yml"
   workflow_dispatch:
 
 permissions:
