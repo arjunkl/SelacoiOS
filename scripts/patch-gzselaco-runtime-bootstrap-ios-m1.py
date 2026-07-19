@@ -8,6 +8,16 @@ import shutil
 import sys
 
 
+def replace_once(path: pathlib.Path, old: str, new: str, description: str) -> None:
+    text = path.read_text(encoding="utf-8")
+    count = text.count(old)
+    if count != 1:
+        raise RuntimeError(
+            f"{description}: expected one exact match in {path}, found {count}"
+        )
+    path.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+
 def main() -> int:
     if len(sys.argv) != 2:
         print(
@@ -21,6 +31,7 @@ def main() -> int:
     overlay = (
         repository_root / "overlays" / "gzselaco-ios" / "i_runtime_bootstrap.mm"
     )
+    src_cmake = source_root / "src" / "CMakeLists.txt"
     destination = (
         source_root
         / "src"
@@ -30,7 +41,7 @@ def main() -> int:
         / "i_platform_runtime.mm"
     )
 
-    if not (source_root / "src" / "CMakeLists.txt").is_file():
+    if not src_cmake.is_file():
         raise RuntimeError(f"not a GZSelaco source checkout: {source_root}")
     if not overlay.is_file():
         raise RuntimeError(f"runtime bootstrap overlay is missing: {overlay}")
@@ -41,15 +52,19 @@ def main() -> int:
 
     shutil.copyfile(overlay, destination)
 
-    cmake_text = (source_root / "src" / "CMakeLists.txt").read_text(
-        encoding="utf-8"
-    )
+    cmake_text = src_cmake.read_text(encoding="utf-8")
     expected_source = "\tcommon/platform/ios/i_platform_runtime.mm"
     if cmake_text.count(expected_source) != 1:
         raise RuntimeError(
             "runtime source is not selected exactly once by the iOS target"
         )
 
+    replace_once(
+        src_cmake,
+        'XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "am.arjunkl.selacoios.fullengine.m0"',
+        'XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "am.arjunkl.selacoios.runtime.m1"',
+        "assign the runtime-bootstrap bundle identifier",
+    )
     return 0
 
 
