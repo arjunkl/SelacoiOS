@@ -13,7 +13,8 @@ Verified so far:
 - a bounded arm64 iPhoneOS core compile;
 - official MoltenVK iOS package pin and SHA-256 verification;
 - an unsigned arm64 iPhoneOS `.app` link boundary;
-- Vulkan instance and `CAMetalLayer` surface creation paths compiled and linked through MoltenVK.
+- Vulkan instance and `CAMetalLayer` surface creation paths compiled and linked through MoltenVK;
+- a static arm64 iPhoneOS ZMusic compatibility build and GZSelaco-facing API contract, with desktop-only FluidSynth and hardware CoreMIDI paths explicitly excluded.
 
 Not yet verified:
 
@@ -21,10 +22,10 @@ Not yet verified:
 - Vulkan instance or surface success on A18 Pro;
 - swapchain creation;
 - full GZSelaco renderer linkage;
-- menu, game-data import, controls, audio, video, saves, or gameplay;
+- menu, game-data import, controls, audio output, video, saves, or gameplay;
 - IPA packaging, signing, installation, or distribution.
 
-The active source and binary-package pins are recorded in [`SOURCE_PIN.env`](SOURCE_PIN.env) and [`MOLTENVK_PIN.env`](MOLTENVK_PIN.env).
+The active engine and renderer pins are recorded in [`SOURCE_PIN.env`](SOURCE_PIN.env) and [`MOLTENVK_PIN.env`](MOLTENVK_PIN.env). Explicit dependency compatibility trials are recorded separately in [`DEPENDENCY_TRIAL_PINS.env`](DEPENDENCY_TRIAL_PINS.env).
 
 ## Legal and asset boundary
 
@@ -48,5 +49,6 @@ This project is not affiliated with or endorsed by Altered Orbit Studios, Fulqru
 - [`docs/PROJECT_COMMAND_CENTRE.md`](docs/PROJECT_COMMAND_CENTRE.md): scope, verified evidence, milestone gates, and stop conditions
 - [`docs/M0_DEPENDENCY_AND_PLATFORM_AUDIT.md`](docs/M0_DEPENDENCY_AND_PLATFORM_AUDIT.md): dependency, platform, and licence status
 - [`docs/M0_VULKAN_COMPATIBILITY_INVENTORY.md`](docs/M0_VULKAN_COMPATIBILITY_INVENTORY.md): GZSelaco requirements compared with MoltenVK v1.4.1
+- [`docs/M0_ZMUSIC_IOS_PROBE.md`](docs/M0_ZMUSIC_IOS_PROBE.md): successful static ZMusic iPhoneOS trial, adaptations, limitations, and evidence
 
 Development proceeds through evidence-gated milestones rather than broad speculative implementation.
