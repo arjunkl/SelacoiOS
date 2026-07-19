@@ -4,6 +4,8 @@ set -Eeuo pipefail
 repo_root="$(git rev-parse --show-toplevel)"
 # shellcheck disable=SC1091
 source "${repo_root}/SOURCE_PIN.env"
+# shellcheck disable=SC1091
+source "${repo_root}/MOLTENVK_PIN.env"
 
 evidence_dir="${repo_root}/build/evidence/m0-ios-shell"
 artifact_dir="${repo_root}/build/artifacts/m0-ios-shell"
@@ -23,16 +25,18 @@ if [[ "$(uname -s)" != "Darwin" ]]; then
   exit 2
 fi
 
-for command_name in git cmake xcrun xcodebuild file nm otool plutil shasum strings ditto; do
+for command_name in git curl tar cmake xcrun xcodebuild file nm otool plutil shasum strings ditto; do
   if ! command -v "${command_name}" >/dev/null 2>&1; then
     echo "error: required command is unavailable: ${command_name}" >&2
     exit 2
   fi
 done
 
-for required_var in GZSELACO_REPOSITORY GZSELACO_COMMIT; do
+for required_var in \
+    GZSELACO_REPOSITORY GZSELACO_COMMIT \
+    MOLTENVK_REPOSITORY MOLTENVK_TAG MOLTENVK_ASSET_NAME MOLTENVK_ASSET_SHA256; do
   if [[ -z "${!required_var:-}" ]]; then
-    echo "error: ${required_var} is missing from SOURCE_PIN.env" >&2
+    echo "error: ${required_var} is missing from a source pin file" >&2
     exit 2
   fi
 done
@@ -49,8 +53,11 @@ xcrun --sdk iphoneos --find clang
 
 source_dir="${workdir}/GZSelaco"
 build_dir="${workdir}/ios-shell-build"
+moltenvk_tar="${workdir}/${MOLTENVK_ASSET_NAME}"
+moltenvk_root="${workdir}/MoltenVK-package"
+mkdir -p "${moltenvk_root}"
 
-echo "== Fetch pinned source =="
+echo "== Fetch pinned GZSelaco source =="
 git init -q "${source_dir}"
 git -C "${source_dir}" remote add origin "${GZSELACO_REPOSITORY}"
 git -C "${source_dir}" fetch -q --depth=1 origin "${GZSELACO_COMMIT}"
@@ -62,12 +69,46 @@ if [[ "${resolved_commit}" != "${GZSELACO_COMMIT}" ]]; then
 fi
 echo "source: ${resolved_commit}"
 
+echo "== Fetch pinned MoltenVK iOS package =="
+moltenvk_url="https://github.com/${MOLTENVK_REPOSITORY}/releases/download/${MOLTENVK_TAG}/${MOLTENVK_ASSET_NAME}"
+curl --fail --silent --show-error --location --retry 3 \
+  "${moltenvk_url}" \
+  --output "${moltenvk_tar}"
+moltenvk_sha256="$(shasum -a 256 "${moltenvk_tar}" | awk '{print $1}')"
+printf '%s  %s\n' "${moltenvk_sha256}" "${MOLTENVK_ASSET_NAME}" | tee "${evidence_dir}/moltenvk-asset-sha256.txt"
+if [[ "${moltenvk_sha256}" != "${MOLTENVK_ASSET_SHA256}" ]]; then
+  echo "error: MoltenVK package hash ${moltenvk_sha256} differs from committed pin ${MOLTENVK_ASSET_SHA256}" >&2
+  exit 1
+fi
+
+tar -xf "${moltenvk_tar}" -C "${moltenvk_root}"
+moltenvk_library="$(find "${moltenvk_root}" -type f -name 'libMoltenVK.a' -path '*/static/MoltenVK.xcframework/ios-arm64/*' -print -quit)"
+moltenvk_include="$(find "${moltenvk_root}" -type d -path '*/MoltenVK/include' -print -quit)"
+if [[ -z "${moltenvk_library}" || ! -f "${moltenvk_library}" ]]; then
+  echo "error: pinned package has no physical-device ios-arm64 libMoltenVK.a" >&2
+  exit 1
+fi
+if [[ -z "${moltenvk_include}" || ! -f "${moltenvk_include}/vulkan/vulkan.h" ]]; then
+  echo "error: pinned package has no Vulkan include directory" >&2
+  exit 1
+fi
+
+file "${moltenvk_library}" | tee "${evidence_dir}/moltenvk-library-file.txt"
+xcrun lipo -info "${moltenvk_library}" | tee "${evidence_dir}/moltenvk-library-architecture.txt"
+moltenvk_architecture="$(cat "${evidence_dir}/moltenvk-library-architecture.txt")"
+if [[ "${moltenvk_architecture}" != *"arm64"* || "${moltenvk_architecture}" == *"x86_64"* ]]; then
+  echo "error: selected MoltenVK library is not physical-device arm64" >&2
+  exit 1
+fi
+
 echo "== Configure unsigned arm64 iPhoneOS application shell =="
 cmake \
   -G Xcode \
   -S "${repo_root}/platform/ios-shell" \
   -B "${build_dir}" \
   -DGZSELACO_SOURCE_DIR="${source_dir}" \
+  -DMOLTENVK_LIBRARY="${moltenvk_library}" \
+  -DMOLTENVK_INCLUDE_DIR="${moltenvk_include}" \
   -DCMAKE_SYSTEM_NAME=iOS \
   -DCMAKE_OSX_SYSROOT=iphoneos \
   -DCMAKE_OSX_ARCHITECTURES=arm64 \
@@ -106,7 +147,7 @@ if [[ ! -f "${executable_path}" || ! -f "${info_plist_path}" ]]; then
   exit 1
 fi
 
-echo "== Validate bundle and Mach-O boundary =="
+echo "== Validate bundle, Mach-O, and Vulkan linkage =="
 plutil -lint "${info_plist_path}" | tee "${evidence_dir}/plist-lint.txt"
 plutil -p "${info_plist_path}" | tee "${evidence_dir}/plist.txt"
 
@@ -126,6 +167,8 @@ xcrun lipo -info "${executable_path}" | tee "${evidence_dir}/executable-architec
 xcrun vtool -show-build "${executable_path}" | tee "${evidence_dir}/mach-build-version.txt"
 otool -L "${executable_path}" | tee "${evidence_dir}/linked-libraries.txt"
 nm -gU "${executable_path}" | tee "${evidence_dir}/global-symbols.txt"
+nm -g "${executable_path}" | tee "${evidence_dir}/all-global-symbols.txt"
+strings "${executable_path}" > "${evidence_dir}/executable-strings.txt"
 
 architecture_info="$(cat "${evidence_dir}/executable-architecture.txt")"
 if [[ "${architecture_info}" != *"arm64"* || "${architecture_info}" == *"x86_64"* ]]; then
@@ -137,25 +180,34 @@ if ! grep -q 'platform IOS' "${evidence_dir}/mach-build-version.txt"; then
   exit 1
 fi
 
-for framework in UIKit CoreGraphics Metal MetalKit QuartzCore Foundation; do
+for framework in UIKit CoreGraphics IOSurface Metal MetalKit QuartzCore Foundation; do
   if ! grep -q "/${framework}\.framework/${framework}" "${evidence_dir}/linked-libraries.txt"; then
     echo "error: expected ${framework} framework linkage is absent" >&2
     exit 1
   fi
 done
 
-for symbol in _SelacoIOSGameSignature _SelacoIOSEngineVersion _SelacoIOSEngineSelfTest; do
+for symbol in \
+    _SelacoIOSGameSignature _SelacoIOSEngineVersion _SelacoIOSEngineSelfTest \
+    _SelacoIOSVulkanSelfTest _SelacoIOSVulkanCompiledVersion; do
   if ! grep -q "${symbol}" "${evidence_dir}/global-symbols.txt"; then
-    echo "error: pinned-engine bridge symbol is absent: ${symbol}" >&2
+    echo "error: application boundary symbol is absent: ${symbol}" >&2
     exit 1
   fi
 done
 
-if ! strings "${executable_path}" | grep -q '^SELACO$'; then
+for symbol in _vkCreateInstance _vkDestroyInstance _vkEnumerateInstanceExtensionProperties; do
+  if ! grep -q "${symbol}" "${evidence_dir}/all-global-symbols.txt"; then
+    echo "error: statically linked MoltenVK symbol is absent: ${symbol}" >&2
+    exit 1
+  fi
+done
+
+if ! grep -q '^SELACO$' "${evidence_dir}/executable-strings.txt"; then
   echo "error: pinned GZSelaco game signature is absent from the executable" >&2
   exit 1
 fi
-if ! strings "${executable_path}" | grep -q 'GZDoom 4\.13\.0'; then
+if ! grep -q 'GZDoom 4\.13\.0' "${evidence_dir}/executable-strings.txt"; then
   echo "error: pinned GZSelaco engine version is absent from the executable" >&2
   exit 1
 fi
@@ -172,6 +224,10 @@ shasum -a 256 "${artifact_dir}/SelacoiOSShell-unsigned-app.zip" | tee "${evidenc
 cat > "${evidence_dir}/probe-manifest.txt" <<MANIFEST
 source_repository=${GZSELACO_REPOSITORY}
 source_commit=${resolved_commit}
+moltenvk_repository=${MOLTENVK_REPOSITORY}
+moltenvk_tag=${MOLTENVK_TAG}
+moltenvk_asset=${MOLTENVK_ASSET_NAME}
+moltenvk_asset_sha256=${moltenvk_sha256}
 host_os=$(sw_vers -productVersion)
 xcode=$(xcodebuild -version | tr '\n' ' ')
 iphoneos_sdk=${iphoneos_sdk_version}
@@ -184,8 +240,9 @@ executable=${executable_path}
 signed=no
 renderer_surface=MetalKit
 engine_bridge=GZSelaco_SuperFastHashI
+moltenvk_linked=yes
+vulkan_instance_self_test=compiled_not_physically_executed
 engine_runtime=not_started
-moltenvk=not_integrated
 sdl=not_integrated
 MANIFEST
 
