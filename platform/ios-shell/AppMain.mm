@@ -24,7 +24,7 @@
 
     NSString *signature = [NSString stringWithUTF8String:SelacoIOSGameSignature()];
     NSString *engine = [NSString stringWithUTF8String:SelacoIOSEngineVersion()];
-    NSString *queueStatus = SelacoIOSQueueSelfTest() ? @"PASS" : @"FAIL";
+    NSString *bridgeStatus = SelacoIOSEngineSelfTest() ? @"PASS" : @"FAIL";
 
     UILabel *status = [[UILabel alloc] initWithFrame:CGRectZero];
     status.translatesAutoresizingMaskIntoConstraints = NO;
@@ -36,7 +36,7 @@
         @"SelacoiOS\n%@ · %@\nPinned engine bridge: %@\nMilestone 0 platform shell",
         signature,
         engine,
-        queueStatus];
+        bridgeStatus];
     [metalView addSubview:status];
 
     [NSLayoutConstraint activateConstraints:@[
