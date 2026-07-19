@@ -1,0 +1,49 @@
+name: Milestone 0 Host Tools Probe
+
+on:
+  push:
+    branches:
+      - "agent/**"
+    paths:
+      - "SOURCE_PIN.env"
+      - "cmake/host-tools/**"
+      - "scripts/m0-host-tools-probe.sh"
+      - ".github/workflows/m0-host-tools-probe.yml"
+  pull_request:
+    paths:
+      - "SOURCE_PIN.env"
+      - "cmake/host-tools/**"
+      - "scripts/m0-host-tools-probe.sh"
+      - ".github/workflows/m0-host-tools-probe.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: m0-host-tools-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native-host-tools:
+    name: Native macOS host tools
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - name: Check out SelacoiOS
+        uses: actions/checkout@v4
+
+      - name: Validate probe syntax
+        run: bash -n scripts/m0-host-tools-probe.sh
+
+      - name: Configure and build pinned host tools
+        run: bash scripts/m0-host-tools-probe.sh
+
+      - name: Preserve probe evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selaco-m0-host-tools-evidence
+          path: build/evidence/m0-host-tools
+          if-no-files-found: warn
+          retention-days: 14
