@@ -189,14 +189,17 @@ done
 
 for symbol in \
     _SelacoIOSGameSignature _SelacoIOSEngineVersion _SelacoIOSEngineSelfTest \
-    _SelacoIOSVulkanSelfTest _SelacoIOSVulkanCompiledVersion; do
+    _SelacoIOSVulkanSelfTest _SelacoIOSVulkanSurfaceSelfTest \
+    _SelacoIOSVulkanCompiledVersion; do
   if ! grep -q "${symbol}" "${evidence_dir}/global-symbols.txt"; then
     echo "error: application boundary symbol is absent: ${symbol}" >&2
     exit 1
   fi
 done
 
-for symbol in _vkCreateInstance _vkDestroyInstance _vkEnumerateInstanceExtensionProperties; do
+for symbol in \
+    _vkCreateInstance _vkDestroyInstance _vkEnumerateInstanceExtensionProperties \
+    _vkCreateMetalSurfaceEXT _vkDestroySurfaceKHR; do
   if ! grep -q "${symbol}" "${evidence_dir}/all-global-symbols.txt"; then
     echo "error: statically linked MoltenVK symbol is absent: ${symbol}" >&2
     exit 1
@@ -242,6 +245,7 @@ renderer_surface=MetalKit
 engine_bridge=GZSelaco_SuperFastHashI
 moltenvk_linked=yes
 vulkan_instance_self_test=compiled_not_physically_executed
+vulkan_metal_surface_self_test=compiled_not_physically_executed
 engine_runtime=not_started
 sdl=not_integrated
 MANIFEST
