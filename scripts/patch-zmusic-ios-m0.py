@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import pathlib
+import shutil
 import sys
 
 
@@ -18,13 +19,19 @@ def replace_once(path: pathlib.Path, old: str, new: str, description: str) -> No
 
 
 def main() -> int:
-    if len(sys.argv) != 2:
-        print("usage: patch-zmusic-ios-m0.py <ZMusic source directory>", file=sys.stderr)
+    if len(sys.argv) != 3:
+        print(
+            "usage: patch-zmusic-ios-m0.py <ZMusic source directory> <FluidSynth stub>",
+            file=sys.stderr,
+        )
         return 2
 
     root = pathlib.Path(sys.argv[1]).resolve()
+    stub_source = pathlib.Path(sys.argv[2]).resolve()
     if not (root / "CMakeLists.txt").is_file():
         raise RuntimeError(f"not a ZMusic source checkout: {root}")
+    if not stub_source.is_file():
+        raise RuntimeError(f"FluidSynth stub is missing: {stub_source}")
 
     replace_once(
         root / "CMakeLists.txt",
@@ -60,6 +67,9 @@ def main() -> int:
         "if(ZMUSIC_ENABLE_FLUIDSYNTH)\n"
         "\ttarget_sources(zmusic-obj INTERFACE\n"
         "\t\tmididevices/music_fluidsynth_mididevice.cpp)\n"
+        "else()\n"
+        "\ttarget_sources(zmusic-obj INTERFACE\n"
+        "\t\tmididevices/music_fluidsynth_stub.cpp)\n"
         "endif()\n",
         "add conditional FluidSynth MIDI source selection",
     )
@@ -76,6 +86,8 @@ def main() -> int:
         "make FluidSynth linkage conditional",
     )
 
+    stub_destination = root / "source" / "mididevices" / "music_fluidsynth_stub.cpp"
+    shutil.copyfile(stub_source, stub_destination)
     return 0
 
 
