@@ -84,9 +84,8 @@ def main() -> int:
         'if(CMAKE_SYSTEM_NAME STREQUAL "iOS")\n'
         '\t# CMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY makes the historical\n'
         '\t# function checks appear to find these non-POSIX names. Force the\n'
-        '\t# intended aliases and declarations for the real device compile.\n'
+        '\t# intended aliases for the real device compile.\n'
         '\tadd_definitions(-Dstricmp=strcasecmp -Dstrnicmp=strncasecmp)\n'
-        '\tadd_compile_options(-include strings.h)\n'
         'endif()\n',
         "provide POSIX case-insensitive string aliases on iOS",
     )
@@ -167,6 +166,17 @@ def main() -> int:
         'elseif( APPLE )\n'
         '\tset( LINK_FRAMEWORKS "-framework Cocoa -framework IOKit -framework OpenGL")\n',
         "separate iOS framework linkage from desktop Cocoa",
+    )
+
+    zstring_header = root / "src" / "common" / "utility" / "zstring.h"
+    replace_once(
+        zstring_header,
+        '#include <string.h>\n',
+        '#include <string.h>\n'
+        '#if defined(__APPLE__)\n'
+        '#include <strings.h>\n'
+        '#endif\n',
+        "provide Apple declarations for strcasecmp and strncasecmp",
     )
 
     zvulkan_cmake = root / "libraries" / "ZVulkan" / "CMakeLists.txt"
