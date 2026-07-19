@@ -4,9 +4,27 @@ SelacoiOS is an experimental, community-driven effort to investigate and build a
 
 ## Current status
 
-The project is in **Milestone 0: static feasibility and architecture validation**. No claim of a working iOS build, successful launch, gameplay, packaging, or device validation should be inferred until reproducible evidence is committed or linked from this repository.
+The project remains in **Milestone 0: static feasibility and architecture validation**.
 
-The active source revision and automated assumptions are recorded in [`SOURCE_PIN.env`](SOURCE_PIN.env). The bootstrap CI checks the repository asset boundary and audits that exact upstream revision.
+Verified so far:
+
+- exact GZSelaco source pin and proprietary-asset boundary;
+- native macOS host tools;
+- a bounded arm64 iPhoneOS core compile;
+- official MoltenVK iOS package pin and SHA-256 verification;
+- an unsigned arm64 iPhoneOS `.app` link boundary;
+- Vulkan instance and `CAMetalLayer` surface creation paths compiled and linked through MoltenVK.
+
+Not yet verified:
+
+- physical-device launch or execution;
+- Vulkan instance or surface success on A18 Pro;
+- swapchain creation;
+- full GZSelaco renderer linkage;
+- menu, game-data import, controls, audio, video, saves, or gameplay;
+- IPA packaging, signing, installation, or distribution.
+
+The active source and binary-package pins are recorded in [`SOURCE_PIN.env`](SOURCE_PIN.env) and [`MOLTENVK_PIN.env`](MOLTENVK_PIN.env).
 
 ## Legal and asset boundary
 
@@ -19,14 +37,16 @@ This project is not affiliated with or endorsed by Altered Orbit Studios, Fulqru
 ## Initial technical direction
 
 - Target: physical arm64 iPhone, initially an iPhone 16 Pro Max / A18 Pro
-- Renderer: Vulkan through MoltenVK, subject to physical-device validation
+- Renderer: Vulkan through MoltenVK
+- Surface: `VK_EXT_metal_surface` over an iOS-owned `CAMetalLayer`
 - Input: external controller first; touch and gyro after engine viability is proven
 - Data: user-imported `Selaco.ipk3`; never committed or bundled
-- Delivery: private development IPA during validation; no public distribution assumptions
+- Distribution: no public-release assumptions; current Milestone 0 does not authorize packaging or installation
 
 ## Project evidence
 
-- [`docs/PROJECT_COMMAND_CENTRE.md`](docs/PROJECT_COMMAND_CENTRE.md): scope, evidence status, milestone gates, and stop conditions
-- [`docs/M0_DEPENDENCY_AND_PLATFORM_AUDIT.md`](docs/M0_DEPENDENCY_AND_PLATFORM_AUDIT.md): initial dependency closure and Apple-versus-iOS source audit
+- [`docs/PROJECT_COMMAND_CENTRE.md`](docs/PROJECT_COMMAND_CENTRE.md): scope, verified evidence, milestone gates, and stop conditions
+- [`docs/M0_DEPENDENCY_AND_PLATFORM_AUDIT.md`](docs/M0_DEPENDENCY_AND_PLATFORM_AUDIT.md): dependency, platform, and licence status
+- [`docs/M0_VULKAN_COMPATIBILITY_INVENTORY.md`](docs/M0_VULKAN_COMPATIBILITY_INVENTORY.md): GZSelaco requirements compared with MoltenVK v1.4.1
 
-Development work proceeds through evidence-gated milestones rather than broad speculative implementation.
+Development proceeds through evidence-gated milestones rather than broad speculative implementation.
