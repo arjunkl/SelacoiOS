@@ -28,16 +28,15 @@ get_filename_component(GZSELACO_SOURCE_DIR "${GZSELACO_SOURCE_DIR}" ABSOLUTE)
 
 foreach(required_path
     src/version.h
-    src/common/utility/TSQueue.cpp
-    src/common/utility/TSQueue.h
-    src/common/utility/tarray.h
-    src/common/engine/stats.h)
+    src/common/thirdparty/superfasthash.h
+    src/common/thirdparty/superfasthash.cpp)
   if(NOT EXISTS "${GZSELACO_SOURCE_DIR}/${required_path}")
     message(FATAL_ERROR "Pinned source is missing ${required_path}")
   endif()
 endforeach()
 
 find_library(FOUNDATION_FRAMEWORK Foundation REQUIRED)
+find_library(COREGRAPHICS_FRAMEWORK CoreGraphics REQUIRED)
 find_library(UIKIT_FRAMEWORK UIKit REQUIRED)
 find_library(QUARTZCORE_FRAMEWORK QuartzCore REQUIRED)
 find_library(METAL_FRAMEWORK Metal REQUIRED)
@@ -45,21 +44,12 @@ find_library(METALKIT_FRAMEWORK MetalKit REQUIRED)
 
 add_library(selaco-engine-boundary STATIC
   "${CMAKE_CURRENT_SOURCE_DIR}/SelacoEngineBoundary.cpp"
-  "${GZSELACO_SOURCE_DIR}/src/common/utility/TSQueue.cpp")
+  "${GZSELACO_SOURCE_DIR}/src/common/thirdparty/superfasthash.cpp")
 
 target_include_directories(selaco-engine-boundary PRIVATE
   "${CMAKE_CURRENT_SOURCE_DIR}"
   "${GZSELACO_SOURCE_DIR}/src"
-  "${GZSELACO_SOURCE_DIR}/src/common/utility"
-  "${GZSELACO_SOURCE_DIR}/src/common/engine"
-  "${GZSELACO_SOURCE_DIR}/src/common/filesystem/include"
   "${GZSELACO_SOURCE_DIR}/src/common/thirdparty")
-
-target_compile_definitions(selaco-engine-boundary PRIVATE
-  stricmp=strcasecmp
-  strnicmp=strncasecmp
-  HAVE_VM_JIT=0
-  NO_SEND_STATS=1)
 
 target_compile_options(selaco-engine-boundary PRIVATE
   -Wall
@@ -81,6 +71,7 @@ target_compile_options(SelacoiOSShell PRIVATE
 target_link_libraries(SelacoiOSShell PRIVATE
   selaco-engine-boundary
   "${FOUNDATION_FRAMEWORK}"
+  "${COREGRAPHICS_FRAMEWORK}"
   "${UIKIT_FRAMEWORK}"
   "${QUARTZCORE_FRAMEWORK}"
   "${METAL_FRAMEWORK}"
