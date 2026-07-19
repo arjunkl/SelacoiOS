@@ -76,8 +76,8 @@ text = text.replace(
 )
 text = text.replace(
     "physical_execution=not_tested\n",
-    "runtime_lifecycle=uikit_embedded_not_executed\n"
-    "vulkan_metal_probe=embedded_not_executed\n"
+    "runtime_lifecycle=uikit_first_crash_localization_not_executed\n"
+    "vulkan_metal_probe=delayed_breadcrumbed_not_executed\n"
     "physical_execution=not_tested\n",
     1,
 )
@@ -98,10 +98,10 @@ with plist_path.open("rb") as stream:
 
 info.update({
     "CFBundleIdentifier": "am.arjunkl.selacoios.runtime.m1",
-    "CFBundleName": "SelacoiOS",
-    "CFBundleDisplayName": "SelacoiOS",
-    "CFBundleShortVersionString": "0.1.0",
-    "CFBundleVersion": "1",
+    "CFBundleName": "SelacoiOS Diagnostics",
+    "CFBundleDisplayName": "SelacoiOS Diagnostics",
+    "CFBundleShortVersionString": "0.2.0",
+    "CFBundleVersion": "2",
     "UIFileSharingEnabled": True,
     "LSSupportsOpeningDocumentsInPlace": True,
     "UIRequiresFullScreen": True,
@@ -134,12 +134,16 @@ if [[ ! -f "${runtime_executable}" ]]; then
 fi
 
 strings "${runtime_executable}" > "${evidence_dir}/runtime-strings.txt"
-if ! grep -Fq 'SelacoiOS Runtime Bootstrap' "${evidence_dir}/runtime-strings.txt"; then
-  echo "error: final executable lacks the runtime-bootstrap status marker" >&2
+if ! grep -Fq 'SelacoiOS Crash-Localization Build' "${evidence_dir}/runtime-strings.txt"; then
+  echo "error: final executable lacks the crash-localization status marker" >&2
   exit 1
 fi
 if ! grep -Fq 'No swapchain or game loop started' "${evidence_dir}/runtime-strings.txt"; then
   echo "error: final executable lacks the bounded runtime stop marker" >&2
+  exit 1
+fi
+if ! grep -Fq 'phase=main_entered' "${evidence_dir}/runtime-strings.txt"; then
+  echo "error: final executable lacks the launch breadcrumb marker" >&2
   exit 1
 fi
 
@@ -155,7 +159,7 @@ cp -R "${runtime_app}" "${ipa_stage}/Payload/Selaco.app"
 runtime_ipa="${artifact_dir}/Selaco-runtime-bootstrap-unsigned.ipa"
 (
   cd "${ipa_stage}"
-  ditto -c -k --sequesterRsrc Payload "${runtime_ipa}"
+  ditto -c -k --sequesterRsrc --keepParent Payload "${runtime_ipa}"
 )
 
 if ! unzip -Z1 "${runtime_ipa}" | grep -Fxq 'Payload/Selaco.app/Selaco'; then
@@ -173,9 +177,10 @@ printf '%s  %s\n' "${ipa_sha256}" "$(basename "${runtime_ipa}")" | tee "${eviden
 echo "ipa_size=${ipa_size}" | tee "${evidence_dir}/ipa-size.txt"
 unzip -Z1 "${runtime_ipa}" > "${evidence_dir}/ipa-contents.txt"
 
-echo "runtime_status_ui=embedded" >> "${evidence_dir}/probe-manifest.txt"
+echo "runtime_status_ui=uikit_first_crash_localization" >> "${evidence_dir}/probe-manifest.txt"
 echo "persistent_result_file=Documents/Selaco/runtime-bootstrap.txt" >> "${evidence_dir}/probe-manifest.txt"
 echo "bundle_identifier=${bundle_identifier}" >> "${evidence_dir}/probe-manifest.txt"
+echo "bundle_version=0.2.0(2)" >> "${evidence_dir}/probe-manifest.txt"
 echo "unsigned_ipa=Selaco-runtime-bootstrap-unsigned.ipa" >> "${evidence_dir}/probe-manifest.txt"
 echo "unsigned_ipa_sha256=${ipa_sha256}" >> "${evidence_dir}/probe-manifest.txt"
 echo "unsigned_ipa_size=${ipa_size}" >> "${evidence_dir}/probe-manifest.txt"
