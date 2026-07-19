@@ -1,0 +1,42 @@
+name: Milestone 0 Static Gates
+
+on:
+  push:
+    branches:
+      - main
+      - "agent/**"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: m0-static-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  repository-boundary:
+    name: Repository and asset boundary
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out SelacoiOS
+        uses: actions/checkout@v4
+
+      - name: Validate shell syntax
+        run: bash -n scripts/*.sh
+
+      - name: Reject proprietary assets and signing output
+        run: bash scripts/check-proprietary-assets.sh
+
+  pinned-source-audit:
+    name: Pinned GZSelaco source audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out SelacoiOS
+        uses: actions/checkout@v4
+
+      - name: Audit exact engine revision and build assumptions
+        run: bash scripts/audit-pinned-source.sh
