@@ -7,6 +7,10 @@ on:
     paths:
       - "scripts/m1-repack-runtime-ipa-from-artifact.sh"
       - ".github/workflows/m1-runtime-bootstrap-ipa-repack.yml"
+  pull_request:
+    paths:
+      - "scripts/m1-repack-runtime-ipa-from-artifact.sh"
+      - ".github/workflows/m1-runtime-bootstrap-ipa-repack.yml"
   workflow_dispatch:
 
 permissions:
@@ -14,7 +18,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: m1-runtime-ipa-repack-${{ github.ref }}
+  group: m1-runtime-ipa-repack-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
