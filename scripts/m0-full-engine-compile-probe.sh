@@ -61,6 +61,11 @@ text = text.replace(
     '"${source_dir}/src/CMakeLists.txt"; then\n'
     '  echo "error: Vulkan-only iOS source patch was not applied" >&2\n'
     '  exit 1\n'
+    'fi\n'
+    "if ! grep -Fq 'SelacoiOS: librt excluded' "
+    '"${source_dir}/src/CMakeLists.txt"; then\n'
+    '  echo "error: iOS librt exclusion patch was not applied" >&2\n'
+    '  exit 1\n'
     'fi\n\n'
     + configure_command,
     1,
@@ -87,9 +92,10 @@ link_manifest="passed"
 if [[ "${compile_status}" == "0" ]]; then
   outcome="FULL_COMPILE_PASS"
 else
-  compile_manifest="failed_boundary_captured"
-  link_manifest="not_reached"
-  python3 - "${evidence_dir}/engine-build.log" "${evidence_dir}/first-compile-boundary.txt" <<'BOUNDARY'
+  python3 - \
+    "${evidence_dir}/engine-build.log" \
+    "${evidence_dir}/first-compile-boundary.txt" \
+    "${evidence_dir}/boundary-kind.txt" <<'BOUNDARY'
 from __future__ import annotations
 
 import pathlib
@@ -98,49 +104,85 @@ import sys
 
 log_path = pathlib.Path(sys.argv[1])
 output_path = pathlib.Path(sys.argv[2])
+kind_path = pathlib.Path(sys.argv[3])
 lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
 source_error = re.compile(
     r"(?:^|\s)([^:\s]+\.(?:c|cc|cpp|cxx|m|mm|h|hh|hpp|hxx)):(\d+)(?::(\d+))?:\s+(?:fatal\s+)?error:"
 )
-match_index = None
-match = None
 for index, line in enumerate(lines):
-    candidate = source_error.search(line)
-    if candidate:
-        match_index = index
-        match = candidate
-        break
-
-if match_index is None or match is None:
-    generic = next(
-        (index for index, line in enumerate(lines) if " error:" in line or "fatal error:" in line),
-        None,
-    )
-    if generic is None:
-        raise SystemExit("build failed without a compiler diagnostic")
-    start = max(0, generic - 15)
-    end = min(len(lines), generic + 25)
+    match = source_error.search(line)
+    if not match:
+        continue
+    start = max(0, index - 15)
+    end = min(len(lines), index + 35)
     output_path.write_text(
-        "classification=UNCLASSIFIED_BUILD_ERROR\n"
+        "classification=TRANSLATION_UNIT_COMPILE_BOUNDARY\n"
+        f"source={match.group(1)}\n"
+        f"line={match.group(2)}\n"
+        f"column={match.group(3) or ''}\n"
         + "\n".join(lines[start:end])
         + "\n",
         encoding="utf-8",
     )
-    raise SystemExit("build failure was not a source or header compiler diagnostic")
+    kind_path.write_text("translation_unit\n", encoding="utf-8")
+    raise SystemExit(0)
 
-start = max(0, match_index - 15)
-end = min(len(lines), match_index + 35)
+link_markers = (
+    "Undefined symbols for architecture",
+    "ld: ",
+    "linker command failed",
+    "duplicate symbol",
+)
+link_index = next(
+    (index for index, line in enumerate(lines) if any(marker in line for marker in link_markers)),
+    None,
+)
+if link_index is not None:
+    start = max(0, link_index - 20)
+    end = min(len(lines), link_index + 80)
+    output_path.write_text(
+        "classification=LINK_BOUNDARY\n"
+        + "\n".join(lines[start:end])
+        + "\n",
+        encoding="utf-8",
+    )
+    kind_path.write_text("link\n", encoding="utf-8")
+    raise SystemExit(0)
+
+generic = next(
+    (index for index, line in enumerate(lines) if " error:" in line or "fatal error:" in line),
+    None,
+)
+if generic is None:
+    raise SystemExit("build failed without a compiler or linker diagnostic")
+start = max(0, generic - 15)
+end = min(len(lines), generic + 25)
 output_path.write_text(
-    "classification=TRANSLATION_UNIT_COMPILE_BOUNDARY\n"
-    f"source={match.group(1)}\n"
-    f"line={match.group(2)}\n"
-    f"column={match.group(3) or ''}\n"
+    "classification=UNCLASSIFIED_BUILD_ERROR\n"
     + "\n".join(lines[start:end])
     + "\n",
     encoding="utf-8",
 )
+raise SystemExit("build failure was not a source, header, or linker diagnostic")
 BOUNDARY
-  outcome="CLASSIFIED_TRANSLATION_UNIT_BOUNDARY"
+
+  boundary_kind="$(tr -d '\r\n' < "${evidence_dir}/boundary-kind.txt")"
+  case "${boundary_kind}" in
+    translation_unit)
+      compile_manifest="failed_boundary_captured"
+      link_manifest="not_reached"
+      outcome="CLASSIFIED_TRANSLATION_UNIT_BOUNDARY"
+      ;;
+    link)
+      compile_manifest="passed"
+      link_manifest="failed_boundary_captured"
+      outcome="CLASSIFIED_LINK_BOUNDARY"
+      ;;
+    *)
+      echo "error: unknown classified boundary kind: ${boundary_kind}" >&2
+      exit 1
+      ;;
+  esac
 fi
 '''
 text = text.replace(marker, compile_block, 1)
