@@ -1,0 +1,66 @@
+name: Milestone 0 Full Engine iOS Configure Probe
+
+on:
+  push:
+    branches:
+      - "agent/**"
+    paths:
+      - "SOURCE_PIN.env"
+      - "DEPENDENCY_TRIAL_PINS.env"
+      - "MOLTENVK_PIN.env"
+      - "cmake/host-tools/**"
+      - "overlays/gzselaco-ios/**"
+      - "overlays/zmusic-ios/**"
+      - "scripts/patch-gzselaco-ios-m0.py"
+      - "scripts/patch-zmusic-ios-m0.py"
+      - "scripts/m0-full-engine-configure-probe.sh"
+      - ".github/workflows/m0-full-engine-configure-probe.yml"
+  pull_request:
+    paths:
+      - "SOURCE_PIN.env"
+      - "DEPENDENCY_TRIAL_PINS.env"
+      - "MOLTENVK_PIN.env"
+      - "cmake/host-tools/**"
+      - "overlays/gzselaco-ios/**"
+      - "overlays/zmusic-ios/**"
+      - "scripts/patch-gzselaco-ios-m0.py"
+      - "scripts/patch-zmusic-ios-m0.py"
+      - "scripts/m0-full-engine-configure-probe.sh"
+      - ".github/workflows/m0-full-engine-configure-probe.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: m0-full-engine-configure-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  arm64-iphoneos-full-configure:
+    name: full GZSelaco arm64 iPhoneOS configure boundary
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - name: Check out SelacoiOS
+        uses: actions/checkout@v4
+
+      - name: Validate configure probe inputs
+        run: |
+          bash -n scripts/m0-full-engine-configure-probe.sh
+          python3 -m py_compile scripts/patch-gzselaco-ios-m0.py
+          python3 -m py_compile scripts/patch-zmusic-ios-m0.py
+          test -s overlays/gzselaco-ios/i_platform_stub.cpp
+          test -s overlays/zmusic-ios/music_fluidsynth_stub.cpp
+
+      - name: Configure full engine and classify first boundary
+        run: bash scripts/m0-full-engine-configure-probe.sh
+
+      - name: Preserve full-engine configure evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selaco-m0-full-engine-configure-evidence
+          path: build/evidence/m0-full-engine-configure
+          if-no-files-found: warn
+          retention-days: 14
