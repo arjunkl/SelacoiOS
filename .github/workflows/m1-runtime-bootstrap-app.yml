@@ -75,6 +75,7 @@ jobs:
           python3 -m py_compile scripts/patch-gzselaco-vulkan-only-ios-m0.py
           python3 -m py_compile scripts/patch-gzselaco-runtime-bootstrap-ios-m1.py
           python3 -m py_compile scripts/patch-zmusic-ios-m0.py
+          command -v unzip
           test -s overlays/gzselaco-ios/i_runtime_bootstrap.mm
 
       - name: Build and validate runtime bootstrap app
@@ -105,5 +106,14 @@ jobs:
         with:
           name: selaco-m1-runtime-bootstrap-unsigned-app
           path: build/artifacts/m1-runtime-bootstrap-app/Selaco-runtime-bootstrap-unsigned-app.zip
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Preserve unsigned runtime bootstrap IPA
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selaco-m1-runtime-bootstrap-unsigned-ipa
+          path: build/artifacts/m1-runtime-bootstrap-app/Selaco-runtime-bootstrap-unsigned.ipa
           if-no-files-found: error
           retention-days: 14
