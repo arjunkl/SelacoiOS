@@ -10,11 +10,13 @@ on:
       - "MOLTENVK_PIN.env"
       - "overlays/gzselaco-ios/i_runtime_bootstrap.mm"
       - "overlays/gzselaco-ios/i_swapchain_probe.mm"
+      - "overlays/gzselaco-ios/i_engine_startup_stubs.mm"
       - "scripts/patch-gzselaco-ios-m0.py"
       - "scripts/patch-gzselaco-vulkan-only-ios-m0.py"
       - "scripts/patch-gzselaco-runtime-bootstrap-ios-m1.py"
       - "scripts/patch-gzselaco-swapchain-ios-m2.py"
       - "scripts/patch-gzselaco-local-asset-ios-m3.py"
+      - "scripts/run-m3-local-asset-patcher.py"
       - "scripts/m0-full-engine-configure-probe.sh"
       - "scripts/m0-full-engine-compile-probe.sh"
       - "scripts/m0-full-engine-app-artifact-probe.sh"
@@ -29,11 +31,13 @@ on:
       - "MOLTENVK_PIN.env"
       - "overlays/gzselaco-ios/i_runtime_bootstrap.mm"
       - "overlays/gzselaco-ios/i_swapchain_probe.mm"
+      - "overlays/gzselaco-ios/i_engine_startup_stubs.mm"
       - "scripts/patch-gzselaco-ios-m0.py"
       - "scripts/patch-gzselaco-vulkan-only-ios-m0.py"
       - "scripts/patch-gzselaco-runtime-bootstrap-ios-m1.py"
       - "scripts/patch-gzselaco-swapchain-ios-m2.py"
       - "scripts/patch-gzselaco-local-asset-ios-m3.py"
+      - "scripts/run-m3-local-asset-patcher.py"
       - "scripts/m0-full-engine-configure-probe.sh"
       - "scripts/m0-full-engine-compile-probe.sh"
       - "scripts/m0-full-engine-app-artifact-probe.sh"
@@ -72,6 +76,8 @@ jobs:
           python3 -m py_compile scripts/patch-gzselaco-runtime-bootstrap-ios-m1.py
           python3 -m py_compile scripts/patch-gzselaco-swapchain-ios-m2.py
           python3 -m py_compile scripts/patch-gzselaco-local-asset-ios-m3.py
+          python3 -m py_compile scripts/run-m3-local-asset-patcher.py
+          test -s overlays/gzselaco-ios/i_engine_startup_stubs.mm
           command -v unzip
           command -v shasum
 
