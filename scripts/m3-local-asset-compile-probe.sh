@@ -6,6 +6,7 @@ source_probe="${repo_root}/scripts/m0-full-engine-compile-probe.sh"
 runtime_patcher="${repo_root}/scripts/patch-gzselaco-runtime-bootstrap-ios-m1.py"
 swapchain_patcher="${repo_root}/scripts/patch-gzselaco-swapchain-ios-m2.py"
 asset_patcher="${repo_root}/scripts/patch-gzselaco-local-asset-ios-m3.py"
+asset_patcher_runner="${repo_root}/scripts/run-m3-local-asset-patcher.py"
 runtime_overlay="${repo_root}/overlays/gzselaco-ios/i_runtime_bootstrap.mm"
 swapchain_overlay="${repo_root}/overlays/gzselaco-ios/i_swapchain_probe.mm"
 evidence_dir="${repo_root}/build/evidence/m3-local-asset-compile"
@@ -17,6 +18,7 @@ for required_file in \
   "${runtime_patcher}" \
   "${swapchain_patcher}" \
   "${asset_patcher}" \
+  "${asset_patcher_runner}" \
   "${runtime_overlay}" \
   "${swapchain_overlay}"; do
   if [[ ! -f "${required_file}" ]]; then
@@ -58,7 +60,7 @@ new = (
     "\"${source_dir}\"\\n'\n"
     "    + 'python3 \"${repo_root}/scripts/patch-gzselaco-swapchain-ios-m2.py\" "
     "\"${source_dir}\"\\n'\n"
-    "    + 'python3 \"${repo_root}/scripts/patch-gzselaco-local-asset-ios-m3.py\" "
+    "    + 'python3 \"${repo_root}/scripts/run-m3-local-asset-patcher.py\" "
     "\"${source_dir}\"\\n',\n"
 )
 if text.count(old) != 1:
