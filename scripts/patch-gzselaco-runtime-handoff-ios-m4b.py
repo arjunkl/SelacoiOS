@@ -107,11 +107,11 @@ def main() -> int:
 - (BOOL)prepareEngineRendererHandoff;
 @end
 
-static __weak SelacoSwapchainViewController *gRendererHandoffController = nil;
+static SelacoSwapchainViewController *gRendererHandoffController = nil;
 
 @implementation SelacoSwapchainViewController
 """,
-        "declare the active handoff controller",
+        "declare the active handoff controller without ARC-only weak storage",
     )
     replace_once(
         runtime,
@@ -176,8 +176,8 @@ static __weak SelacoSwapchainViewController *gRendererHandoffController = nil;
     SelacoIOSRegisterEngineMetalLayer(self.metalLayer);
     self.statusLabel.hidden = NO;
     self.statusLabel.text =
-        @"SelacoiOS Engine Init\\n\\n"
-         "Diagnostic Vulkan: released\\n"
+        @"SelacoiOS Engine Init\n\n"
+         "Diagnostic Vulkan: released\n"
          "Starting GZSelaco renderer…";
     WriteBreadcrumb(@"phase=m4_renderer_handoff_main_thread_passed");
     return YES;
