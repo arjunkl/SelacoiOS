@@ -22,11 +22,24 @@ def main() -> int:
         print("usage: patch-zvulkan-engine-renderer-ios-m4b.py <GZSelaco source>", file=sys.stderr)
         return 2
     root = pathlib.Path(sys.argv[1]).resolve()
+    zvulkan_cmake = root / "libraries" / "ZVulkan" / "CMakeLists.txt"
     instance = root / "libraries" / "ZVulkan" / "src" / "vulkaninstance.cpp"
     swapchain = root / "libraries" / "ZVulkan" / "src" / "vulkanswapchain.cpp"
-    for path in (instance, swapchain):
+    for path in (zvulkan_cmake, instance, swapchain):
         if not path.is_file():
             raise RuntimeError(f"Milestone 4B ZVulkan prerequisite is missing: {path}")
+
+    replace_once(
+        zvulkan_cmake,
+        "add_library(zvulkan STATIC ${ZVULKAN_SOURCES} ${ZVULKAN_INCLUDES} ${VULKAN_INCLUDES})\n"
+        "target_link_libraries(zvulkan ${ZVULKAN_LIBS})\n",
+        "add_library(zvulkan STATIC ${ZVULKAN_SOURCES} ${ZVULKAN_INCLUDES} ${VULKAN_INCLUDES})\n"
+        "if(CMAKE_SYSTEM_NAME STREQUAL \"iOS\")\n"
+        "\ttarget_compile_definitions(zvulkan PRIVATE SELACO_IOS_ENGINE_RENDERER_HANDOFF=1)\n"
+        "endif()\n"
+        "target_link_libraries(zvulkan ${ZVULKAN_LIBS})\n",
+        "compile the ZVulkan library with the embedded MoltenVK loader path",
+    )
 
     replace_once(
         instance,
@@ -57,7 +70,7 @@ def main() -> int:
 \t\tVulkanError("Unable to resolve embedded MoltenVK loader");
 \t}
 \tvolkInitializeCustom(getInstanceProcAddr);
-\tSelacoIOSReportLicensedAssetProbe("engine_volk_dispatch_ready", "volkInitializeCustom completed");
+\tSelacoIOSReportLicensedAssetProbe("engine_volk_dispatch_ready", "ZVulkan target used volkInitializeCustom with embedded MoltenVK");
 #else
 \tif (volkInitialize() != VK_SUCCESS)
 \t{
