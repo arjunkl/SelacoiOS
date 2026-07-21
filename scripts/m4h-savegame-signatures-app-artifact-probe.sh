@@ -45,7 +45,7 @@ import sys
 source = pathlib.Path(sys.argv[1])
 destination = pathlib.Path(sys.argv[2])
 text = source.read_text(encoding="utf-8")
-old = '''unzip -p "${public_support}" zscript/events.zs > "${evidence_dir}/m4f-public-events.zs"
+old = r'''unzip -p "${public_support}" zscript/events.zs > "${evidence_dir}/m4f-public-events.zs"
 for marker in \
   'SELACO_IOS_M4F_RETAIL_SAVEGAME_VIRTUALS' \
   'virtual int GetSavegameFlags()' \
@@ -54,7 +54,7 @@ for marker in \
 done
 
 '''
-new = '''unzip -p "${public_support}" zscript/events.zs > "${evidence_dir}/m4f-public-events.zs"
+new = r'''unzip -p "${public_support}" zscript/events.zs > "${evidence_dir}/m4f-public-events.zs"
 
 '''
 if text.count(old) != 1:
