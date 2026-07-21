@@ -13,6 +13,11 @@
 
 extern void I_GetEvent();
 
+extern "C" const char *SelacoIOSM4CTitleMenuClosure()
+{
+    return "M4C title/menu closure: inert input, VR disabled, stats RPC disabled, native startup window bypassed, Vulkan renderer retained";
+}
+
 void I_StartTic()
 {
     // UIKit input translation is outside M4C. Keep the event pump contract alive
