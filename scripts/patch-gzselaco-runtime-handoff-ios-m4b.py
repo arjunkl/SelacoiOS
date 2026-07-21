@@ -159,7 +159,7 @@ static SelacoSwapchainViewController *gRendererHandoffController = nil;
         "continue UI status reporting after teardown",
     )
 
-    handoff_method = """- (BOOL)prepareEngineRendererHandoff
+    handoff_method = r"""- (BOOL)prepareEngineRendererHandoff
 {
     WriteBreadcrumb(@"phase=m4_renderer_handoff_main_thread_entered");
     self.displayLink.paused = YES;
