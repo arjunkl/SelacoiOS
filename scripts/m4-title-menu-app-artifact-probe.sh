@@ -48,10 +48,10 @@ replacements = {
     "scripts/m4-engine-init-compile-probe.sh":
         "scripts/m4-title-menu-compile-probe.sh",
     "engine-init-app-probe:": "title-menu-app-probe:",
-    '"CFBundleShortVersionString": "0.6.0"': '"CFBundleShortVersionString": "0.7.1"',
-    '"CFBundleVersion": "6"': '"CFBundleVersion": "8"',
+    '"CFBundleShortVersionString": "0.6.0"': '"CFBundleShortVersionString": "0.7.2"',
+    '"CFBundleVersion": "6"': '"CFBundleVersion": "9"',
     'if [[ "${bundle_short_version}" != "0.6.0" || "${bundle_version}" != "6" ]]; then':
-        'if [[ "${bundle_short_version}" != "0.7.1" || "${bundle_version}" != "8" ]]; then',
+        'if [[ "${bundle_short_version}" != "0.7.2" || "${bundle_version}" != "9" ]]; then',
 }
 for old, new in replacements.items():
     if old not in text:
@@ -88,6 +88,7 @@ new_markers = '''for required_marker in \\
   'M4C title/menu closure' \\
   'title_menu_closure_selected' \\
   'renderer_handoff_passed' \\
+  'engine_volk_dispatch_ready' \\
   'native_startup_window_bypassed' \\
   'engine_vulkan_instance_create_entered' \\
   'engine_metal_surface_create_passed' \\
@@ -143,6 +144,7 @@ for marker in \
   'title_menu_closure_selected' \
   'native_startup_window_bypassed' \
   'renderer_handoff_passed' \
+  'engine_volk_dispatch_ready' \
   'engine_first_frame_presented' \
   'title_loop_started'; do
   grep -Fq "${marker}" "${evidence_dir}/m4c-runtime-strings.txt"
@@ -150,10 +152,11 @@ done
 
 echo "stable_bundle_identifier=am.arjunkl.selacoios.engineinit.m4" >> "${evidence_dir}/probe-manifest.txt"
 echo "stable_files_container=SelacoiOS Engine Init" >> "${evidence_dir}/probe-manifest.txt"
-echo "bundle_version=0.7.1(8)" >> "${evidence_dir}/probe-manifest.txt"
+echo "bundle_version=0.7.2(9)" >> "${evidence_dir}/probe-manifest.txt"
 echo "input_backend=inert_title_menu_only" >> "${evidence_dir}/probe-manifest.txt"
 echo "vr_backend=disabled" >> "${evidence_dir}/probe-manifest.txt"
 echo "statistics_transport=disabled" >> "${evidence_dir}/probe-manifest.txt"
+echo "vulkan_loader=zvulkan_target_uses_embedded_moltenvk" >> "${evidence_dir}/probe-manifest.txt"
 echo "new_app_identity_allocated=no" >> "${evidence_dir}/probe-manifest.txt"
 echo "physical_execution=not_tested" >> "${evidence_dir}/probe-manifest.txt"
 printf 'PASS\n' > "${evidence_dir}/result.txt"
