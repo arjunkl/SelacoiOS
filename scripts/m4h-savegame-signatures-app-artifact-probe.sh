@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
-base_probe="${repo_root}/scripts/m4g-override-signature-app-artifact-probe.sh"
+base_probe="${repo_root}/scripts/m4-title-menu-app-artifact-probe.sh"
 evidence_dir="${repo_root}/build/evidence/m4-title-menu-app"
 artifact_dir="${repo_root}/build/artifacts/m4-title-menu-app"
 app="${artifact_dir}/Selaco-engine-init-probe-unsigned.app"
@@ -24,6 +24,14 @@ for required in "${binary}" "${public_support}" "${info_plist}"; do
     echo "error: M4H prerequisite artifact is missing: ${required}" >&2
     exit 1
   fi
+done
+
+strings "${binary}" > "${evidence_dir}/m4h-runtime-strings.txt"
+for marker in \
+  'SELACO_IOS_M4G class=' \
+  'zscript-compile.log' \
+  'actor_zscript_compile_entered'; do
+  grep -Fq "${marker}" "${evidence_dir}/m4h-runtime-strings.txt"
 done
 
 unzip -p "${public_support}" zscript/events.zs > "${evidence_dir}/m4h-public-events.zs"
