@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
-base_probe="${repo_root}/scripts/m4-title-menu-app-artifact-probe.sh"
+source_probe="${repo_root}/scripts/m4-title-menu-app-artifact-probe.sh"
 evidence_dir="${repo_root}/build/evidence/m4-title-menu-app"
 artifact_dir="${repo_root}/build/artifacts/m4-title-menu-app"
 app="${artifact_dir}/Selaco-engine-init-probe-unsigned.app"
@@ -12,11 +12,55 @@ info_plist="${app}/Info.plist"
 app_zip="${artifact_dir}/Selaco-engine-init-probe-unsigned-app.zip"
 ipa="${artifact_dir}/Selaco-engine-init-probe-unsigned.ipa"
 
-if [[ ! -f "${base_probe}" ]]; then
-  echo "error: M4H base app probe is missing: ${base_probe}" >&2
+if [[ ! -f "${source_probe}" ]]; then
+  echo "error: M4H source app probe is missing: ${source_probe}" >&2
   exit 2
 fi
 
+driver_dir="$(mktemp -d)"
+package_root=""
+cleanup() {
+  rm -rf "${driver_dir}"
+  if [[ -n "${package_root}" ]]; then
+    rm -rf "${package_root}"
+  fi
+}
+trap cleanup EXIT
+
+# M4F's app validator intentionally requires the earlier guessed zero-argument
+# savegame declarations. M4H replaces those declarations with the physically
+# observed retail prototypes, so create an M4H-local driver that preserves all
+# other validation while removing only that obsolete predecessor assertion.
+base_probe="${driver_dir}/m4h-base-app-probe.sh"
+python3 - "${source_probe}" "${base_probe}" <<'PY'
+from __future__ import annotations
+
+import pathlib
+import sys
+
+source = pathlib.Path(sys.argv[1])
+destination = pathlib.Path(sys.argv[2])
+text = source.read_text(encoding="utf-8")
+old = '''unzip -p "${public_support}" zscript/events.zs > "${evidence_dir}/m4f-public-events.zs"
+for marker in \
+  'SELACO_IOS_M4F_RETAIL_SAVEGAME_VIRTUALS' \
+  'virtual int GetSavegameFlags()' \
+  'virtual String GetSavegameTitle()'; do
+  grep -Fq "${marker}" "${evidence_dir}/m4f-public-events.zs"
+done
+
+'''
+new = '''unzip -p "${public_support}" zscript/events.zs > "${evidence_dir}/m4f-public-events.zs"
+
+'''
+if text.count(old) != 1:
+    raise SystemExit("M4F public-support signature validator changed")
+text = text.replace(old, new, 1)
+destination.write_text(text, encoding="utf-8")
+destination.chmod(0o755)
+PY
+
+bash -n "${base_probe}"
 bash "${base_probe}"
 
 for required in "${binary}" "${public_support}" "${info_plist}"; do
@@ -62,10 +106,6 @@ fi
 rm -f "${app_zip}" "${ipa}"
 ditto -c -k --sequesterRsrc --keepParent "${app}" "${app_zip}"
 package_root="$(mktemp -d)"
-cleanup() {
-  rm -rf "${package_root}"
-}
-trap cleanup EXIT
 mkdir -p "${package_root}/Payload"
 ditto "${app}" "${package_root}/Payload/Selaco.app"
 (
