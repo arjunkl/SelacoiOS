@@ -7,7 +7,6 @@
 #include <cstddef>
 
 #include "c_cvars.h"
-#include "i_joystick.h"
 #include "m_joy.h"
 #include "tarray.h"
 
