@@ -1,0 +1,118 @@
+name: Milestone 4H Exact Retail Savegame Signatures and Title Menu
+
+on:
+  push:
+    branches:
+      - "agent/**"
+    paths:
+      - "SOURCE_PIN.env"
+      - "DEPENDENCY_TRIAL_PINS.env"
+      - "MOLTENVK_PIN.env"
+      - "overlays/gzselaco-ios/**"
+      - "scripts/patch-gzselaco-*.py"
+      - "scripts/patch-zvulkan-engine-renderer-ios-m4b.py"
+      - "scripts/run-m3-local-asset-patcher.py"
+      - "scripts/m0-*.sh"
+      - "scripts/m4-title-menu-compile-probe.sh"
+      - "scripts/m4-title-menu-app-artifact-probe.sh"
+      - "scripts/m4g-override-signature-app-artifact-probe.sh"
+      - "scripts/m4h-savegame-signatures-app-artifact-probe.sh"
+      - ".github/workflows/m4h-savegame-signatures.yml"
+  pull_request:
+    paths:
+      - "scripts/patch-gzselaco-savegame-signatures-ios-m4h.py"
+      - "scripts/m4-title-menu-compile-probe.sh"
+      - "scripts/m4h-savegame-signatures-app-artifact-probe.sh"
+      - ".github/workflows/m4h-savegame-signatures.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: m4h-savegame-signatures-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  arm64-iphoneos-savegame-signatures:
+    name: full-engine iOS exact retail savegame signature title menu candidate
+    runs-on: macos-15
+    timeout-minutes: 120
+    steps:
+      - name: Check out SelacoiOS
+        uses: actions/checkout@v4
+
+      - name: Validate Milestone 4H inputs
+        run: |
+          bash -n scripts/m0-full-engine-configure-probe.sh
+          bash -n scripts/m0-full-engine-compile-probe.sh
+          bash -n scripts/m0-full-engine-app-artifact-probe.sh
+          bash -n scripts/m0-controlled-mktemp.sh
+          bash -n scripts/m4-title-menu-compile-probe.sh
+          bash -n scripts/m4-title-menu-app-artifact-probe.sh
+          bash -n scripts/m4g-override-signature-app-artifact-probe.sh
+          bash -n scripts/m4h-savegame-signatures-app-artifact-probe.sh
+          python3 -m py_compile scripts/patch-gzselaco-savegame-signatures-ios-m4h.py
+          python3 -m py_compile scripts/patch-gzselaco-override-signature-diagnostics-ios-m4g.py
+          python3 -m py_compile scripts/patch-gzselaco-savegame-virtuals-ios-m4f.py
+          python3 -m py_compile scripts/patch-gzselaco-zscript-diagnostics-ios-m4e.py
+          command -v unzip
+          command -v shasum
+          command -v otool
+          command -v ditto
+          command -v zip
+
+      - name: Build and validate M4H exact signature candidate
+        run: |
+          real_mktemp="$(command -v mktemp)"
+          shim_dir="${GITHUB_WORKSPACE}/build/m4-title-menu-shims"
+          controlled_root="${GITHUB_WORKSPACE}/build/work/m4-title-menu-app/tmp"
+          mkdir -p "${shim_dir}" "${controlled_root}"
+          cp scripts/m0-controlled-mktemp.sh "${shim_dir}/mktemp"
+          chmod +x "${shim_dir}/mktemp"
+          export SELACOIOS_REAL_MKTEMP="${real_mktemp}"
+          export SELACOIOS_CONTROLLED_TMP_ROOT="${controlled_root}"
+          export PATH="${shim_dir}:${PATH}"
+          bash scripts/m4h-savegame-signatures-app-artifact-probe.sh
+
+      - name: Record workflow identity
+        if: always()
+        run: |
+          mkdir -p build/evidence/m4-title-menu-app
+          {
+            echo "tested_head=${GITHUB_SHA}"
+            echo "workflow_run_id=${GITHUB_RUN_ID}"
+            echo "workflow_run_attempt=${GITHUB_RUN_ATTEMPT}"
+            echo "stable_bundle_identifier=am.arjunkl.selacoios.engineinit.m4"
+            echo "stable_files_container=SelacoiOS Engine Init"
+            echo "bundle_version=0.7.8(15)"
+            echo "runtime_diagnostic_file=Documents/Selaco/zscript-compile.log"
+            echo "job_id_available_after_run=true"
+          } > build/evidence/m4-title-menu-app/workflow-identity.txt
+
+      - name: Preserve exact signature evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selaco-m4h-savegame-signatures-evidence
+          path: build/evidence/m4-title-menu-app
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Preserve updated Engine Init app
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selaco-m4h-savegame-signatures-unsigned-app
+          path: build/artifacts/m4-title-menu-app/Selaco-engine-init-probe-unsigned-app.zip
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Preserve updated Engine Init IPA
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selaco-m4h-savegame-signatures-unsigned-ipa
+          path: build/artifacts/m4-title-menu-app/Selaco-engine-init-probe-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 14
