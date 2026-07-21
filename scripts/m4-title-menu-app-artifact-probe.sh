@@ -9,7 +9,7 @@ artifact_dir="${repo_root}/build/artifacts/m4-title-menu-app"
 
 for required_file in "${source_probe}" "${title_menu_compile_probe}"; do
   if [[ ! -f "${required_file}" ]]; then
-    echo "error: Milestone 4E app input is missing: ${required_file}" >&2
+    echo "error: Milestone 4F app input is missing: ${required_file}" >&2
     exit 2
   fi
 done
@@ -48,10 +48,10 @@ replacements = {
     "scripts/m4-engine-init-compile-probe.sh":
         "scripts/m4-title-menu-compile-probe.sh",
     "engine-init-app-probe:": "title-menu-app-probe:",
-    '"CFBundleShortVersionString": "0.6.0"': '"CFBundleShortVersionString": "0.7.5"',
-    '"CFBundleVersion": "6"': '"CFBundleVersion": "12"',
+    '"CFBundleShortVersionString": "0.6.0"': '"CFBundleShortVersionString": "0.7.6"',
+    '"CFBundleVersion": "6"': '"CFBundleVersion": "13"',
     'if [[ "${bundle_short_version}" != "0.6.0" || "${bundle_version}" != "6" ]]; then':
-        'if [[ "${bundle_short_version}" != "0.7.5" || "${bundle_version}" != "12" ]]; then',
+        'if [[ "${bundle_short_version}" != "0.7.6" || "${bundle_version}" != "13" ]]; then',
 }
 for old, new in replacements.items():
     if old not in text:
@@ -140,12 +140,13 @@ bash "${driver}"
 # existing Engine Init app and preserves Documents/Selaco/Selaco.ipk3.
 engine_app="${artifact_dir}/Selaco-engine-init-probe-unsigned.app"
 engine_binary="${engine_app}/Selaco"
-if [[ ! -f "${engine_binary}" ]]; then
-  echo "error: Milestone 4E stable Engine Init app was not produced" >&2
+public_support="${engine_app}/gzdoom.pk3"
+if [[ ! -f "${engine_binary}" || ! -f "${public_support}" ]]; then
+  echo "error: Milestone 4F stable Engine Init app or public support archive was not produced" >&2
   exit 1
 fi
 
-strings "${engine_binary}" > "${evidence_dir}/m4e-runtime-strings.txt"
+strings "${engine_binary}" > "${evidence_dir}/m4f-runtime-strings.txt"
 for marker in \
   'M4C title/menu closure' \
   'title_menu_closure_selected' \
@@ -161,12 +162,20 @@ for marker in \
   'actor_zscript_compile_passed' \
   'engine_first_frame_presented' \
   'title_loop_started'; do
-  grep -Fq "${marker}" "${evidence_dir}/m4e-runtime-strings.txt"
+  grep -Fq "${marker}" "${evidence_dir}/m4f-runtime-strings.txt"
 done
 
-otool -l "${engine_binary}" > "${evidence_dir}/m4e-mach-o-load-commands.txt"
-python3 - "${evidence_dir}/m4e-mach-o-load-commands.txt" \
-  "${evidence_dir}/m4e-creg-section.txt" <<'PY'
+unzip -p "${public_support}" zscript/events.zs > "${evidence_dir}/m4f-public-events.zs"
+for marker in \
+  'SELACO_IOS_M4F_RETAIL_SAVEGAME_VIRTUALS' \
+  'virtual int GetSavegameFlags()' \
+  'virtual String GetSavegameTitle()'; do
+  grep -Fq "${marker}" "${evidence_dir}/m4f-public-events.zs"
+done
+
+otool -l "${engine_binary}" > "${evidence_dir}/m4f-mach-o-load-commands.txt"
+python3 - "${evidence_dir}/m4f-mach-o-load-commands.txt" \
+  "${evidence_dir}/m4f-creg-section.txt" <<'PY'
 from __future__ import annotations
 
 import pathlib
@@ -200,10 +209,10 @@ output.write_text(
 )
 PY
 
-cat "${evidence_dir}/m4e-creg-section.txt"
+cat "${evidence_dir}/m4f-creg-section.txt"
 echo "stable_bundle_identifier=am.arjunkl.selacoios.engineinit.m4" >> "${evidence_dir}/probe-manifest.txt"
 echo "stable_files_container=SelacoiOS Engine Init" >> "${evidence_dir}/probe-manifest.txt"
-echo "bundle_version=0.7.5(12)" >> "${evidence_dir}/probe-manifest.txt"
+echo "bundle_version=0.7.6(13)" >> "${evidence_dir}/probe-manifest.txt"
 echo "input_backend=inert_title_menu_only" >> "${evidence_dir}/probe-manifest.txt"
 echo "vr_backend=disabled" >> "${evidence_dir}/probe-manifest.txt"
 echo "statistics_transport=disabled" >> "${evidence_dir}/probe-manifest.txt"
@@ -211,6 +220,7 @@ echo "vulkan_loader=zvulkan_target_uses_embedded_moltenvk" >> "${evidence_dir}/p
 echo "portability_enumeration=optional_enable_if_advertised" >> "${evidence_dir}/probe-manifest.txt"
 echo "native_class_registry=mach_o_creg_retained_and_nonempty" >> "${evidence_dir}/probe-manifest.txt"
 echo "zscript_diagnostics=private_runtime_console_sink_only" >> "${evidence_dir}/probe-manifest.txt"
+echo "retail_savegame_virtuals=public_support_archive_safe_defaults" >> "${evidence_dir}/probe-manifest.txt"
 echo "commercial_asset_in_ci=no" >> "${evidence_dir}/probe-manifest.txt"
 echo "new_app_identity_allocated=no" >> "${evidence_dir}/probe-manifest.txt"
 echo "physical_execution=not_tested" >> "${evidence_dir}/probe-manifest.txt"
