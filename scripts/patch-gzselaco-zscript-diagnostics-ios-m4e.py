@@ -178,22 +178,20 @@ NSString *EngineConsoleLogTail(NSUInteger maximumLines)
         runtime,
         "void I_PrintStr(const char *message)\n"
         "{\n"
-        "    if (message == nullptr) {\n"
-        "        return;\n"
+        "    if (message != nullptr) {\n"
+        "        std::fputs(message, stdout);\n"
+        "        std::fflush(stdout);\n"
         "    }\n"
-        "    std::fputs(message, stdout);\n"
-        "    std::fflush(stdout);\n"
         "}\n",
         "void I_PrintStr(const char *message)\n"
         "{\n"
-        "    if (message == nullptr) {\n"
-        "        return;\n"
-        "    }\n"
+        "    if (message != nullptr) {\n"
         "#if defined(SELACO_IOS_ZSCRIPT_DIAGNOSTICS)\n"
-        "    AppendEngineConsoleLog(message);\n"
+        "        AppendEngineConsoleLog(message);\n"
         "#endif\n"
-        "    std::fputs(message, stdout);\n"
-        "    std::fflush(stdout);\n"
+        "        std::fputs(message, stdout);\n"
+        "        std::fflush(stdout);\n"
+        "    }\n"
         "}\n",
         "mirror GZDoom console output into the on-device diagnostic file",
     )
