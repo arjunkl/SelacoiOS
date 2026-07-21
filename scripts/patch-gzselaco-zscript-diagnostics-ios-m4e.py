@@ -61,6 +61,13 @@ def main() -> int:
         '#include "zstring.h"\n#include "v_text.h"\n',
         "include GZDoom text-colour definitions",
     )
+    replace_once(
+        runtime,
+        'NSString * const kLicensedAssetProbeNotification = @"SelacoIOSLicensedAssetProbeStatus";\n',
+        'void ResetEngineConsoleLog();\n\n'
+        'NSString * const kLicensedAssetProbeNotification = @"SelacoIOSLicensedAssetProbeStatus";\n',
+        "declare the console reset before RunLicensedAssetProbe",
+    )
 
     helper_marker = "void UncaughtExceptionHandler(NSException *exception)\n"
     helper_block = r'''std::mutex gEngineConsoleLogMutex;
