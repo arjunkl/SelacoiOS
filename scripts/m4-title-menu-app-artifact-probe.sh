@@ -64,9 +64,9 @@ old_symbols = (
 )
 new_symbols = (
     "for retained_symbol in _main _UIApplicationMain _Args _Video _PerfToSec "
-    "_SelacoIOSM4RendererStrategy _SelacoIOSPrepareEngineRendererHandoff "
-    "_SelacoIOSGetVkGetInstanceProcAddr _SelacoIOSM4CTitleMenuClosure "
-    "_gl_dither_bpc _gl_multisample __Z14gl_CreateVideov __Z14I_InitGraphicsv; do"
+    "_SelacoIOSM4RendererStrategy _SelacoIOSRegisterEngineMetalLayer "
+    "_SelacoIOSM4CTitleMenuClosure _gl_dither_bpc _gl_multisample "
+    "__Z14I_InitGraphicsv; do"
 )
 if text.count(old_symbols) != 1:
     raise SystemExit("Milestone 4 retained-symbol validator changed")
@@ -86,6 +86,7 @@ new_markers = '''for required_marker in \\
   'renderer-init-status.txt' \\
   'M4B diagnostic-to-engine handoff' \\
   'M4C title/menu closure' \\
+  'title_menu_closure_selected' \\
   'renderer_handoff_passed' \\
   'native_startup_window_bypassed' \\
   'engine_vulkan_instance_create_entered' \\
@@ -139,6 +140,7 @@ fi
 strings "${engine_binary}" > "${evidence_dir}/m4c-runtime-strings.txt"
 for marker in \
   'M4C title/menu closure' \
+  'title_menu_closure_selected' \
   'native_startup_window_bypassed' \
   'renderer_handoff_passed' \
   'engine_first_frame_presented' \
