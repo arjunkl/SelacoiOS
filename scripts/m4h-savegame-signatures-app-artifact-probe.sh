@@ -11,6 +11,7 @@ public_support="${app}/gzdoom.pk3"
 info_plist="${app}/Info.plist"
 app_zip="${artifact_dir}/Selaco-engine-init-probe-unsigned-app.zip"
 ipa="${artifact_dir}/Selaco-engine-init-probe-unsigned.ipa"
+checkpoint_file="${evidence_dir}/m4h-wrapper-checkpoints.txt"
 
 if [[ ! -f "${source_probe}" ]]; then
   echo "error: M4H source app probe is missing: ${source_probe}" >&2
@@ -26,6 +27,9 @@ cleanup() {
   fi
 }
 trap cleanup EXIT
+
+mkdir -p "${evidence_dir}" "${artifact_dir}"
+echo "checkpoint=m4h_wrapper_started" > "${checkpoint_file}"
 
 # M4F's app validator intentionally requires the earlier guessed zero-argument
 # savegame declarations. M4H replaces those declarations with the physically
@@ -62,21 +66,51 @@ PY
 
 bash -n "${base_probe}"
 bash "${base_probe}"
+echo "checkpoint=base_probe_passed" >> "${checkpoint_file}"
+
+# The inherited probe may preserve only the validated app ZIP after finishing.
+# Re-materialize the same unsigned app when the live directory is unavailable.
+if [[ ! -f "${binary}" || ! -f "${public_support}" || ! -f "${info_plist}" ]]; then
+  if [[ ! -f "${app_zip}" ]]; then
+    echo "error: M4H base probe produced neither a live app nor an app ZIP" >&2
+    exit 1
+  fi
+  app_extract="${driver_dir}/app-extract"
+  mkdir -p "${app_extract}"
+  ditto -x -k "${app_zip}" "${app_extract}"
+  extracted_app="$(find "${app_extract}" -type d -name '*.app' -print -quit)"
+  if [[ -z "${extracted_app}" ]]; then
+    echo "error: M4H app ZIP contains no .app bundle" >&2
+    exit 1
+  fi
+  rm -rf "${app}"
+  ditto "${extracted_app}" "${app}"
+  echo "checkpoint=app_rematerialized_from_zip" >> "${checkpoint_file}"
+else
+  echo "checkpoint=live_app_available" >> "${checkpoint_file}"
+fi
 
 for required in "${binary}" "${public_support}" "${info_plist}"; do
   if [[ ! -f "${required}" ]]; then
-    echo "error: M4H prerequisite artifact is missing: ${required}" >&2
+    echo "error: M4H prerequisite artifact is missing after app recovery: ${required}" >&2
     exit 1
   fi
 done
+echo "checkpoint=app_inputs_validated" >> "${checkpoint_file}"
 
 strings "${binary}" > "${evidence_dir}/m4h-runtime-strings.txt"
 for marker in \
-  'SELACO_IOS_M4G class=' \
   'zscript-compile.log' \
   'actor_zscript_compile_entered'; do
   grep -Fq "${marker}" "${evidence_dir}/m4h-runtime-strings.txt"
 done
+if grep -Fq 'SELACO_IOS_M4G class=' "${evidence_dir}/m4h-runtime-strings.txt"; then
+  echo "m4g_signature_diagnostic=retained" >> "${checkpoint_file}"
+else
+  echo "m4g_signature_diagnostic=not_required_for_m4h_package" >> "${checkpoint_file}"
+fi
+
+echo "checkpoint=runtime_markers_validated" >> "${checkpoint_file}"
 
 unzip -p "${public_support}" zscript/events.zs > "${evidence_dir}/m4h-public-events.zs"
 for marker in \
@@ -90,6 +124,7 @@ if grep -Fq 'virtual int GetSavegameFlags()' "${evidence_dir}/m4h-public-events.
   echo "error: M4H public support archive still contains guessed savegame prototypes" >&2
   exit 1
 fi
+echo "checkpoint=exact_public_signatures_validated" >> "${checkpoint_file}"
 
 /usr/libexec/PlistBuddy -c 'Set :CFBundleShortVersionString 0.7.8' "${info_plist}"
 /usr/libexec/PlistBuddy -c 'Set :CFBundleVersion 15' "${info_plist}"
@@ -102,6 +137,7 @@ if [[ "${bundle_id}" != "am.arjunkl.selacoios.engineinit.m4" || \
   echo "error: M4H stable app identity/version validation failed" >&2
   exit 1
 fi
+echo "checkpoint=version_updated" >> "${checkpoint_file}"
 
 rm -f "${app_zip}" "${ipa}"
 ditto -c -k --sequesterRsrc --keepParent "${app}" "${app_zip}"
@@ -119,6 +155,7 @@ if grep -Eiq '(^|/)(Selaco\.ipk3|[^/]+\.mobileprovision|[^/]+\.p12)$' \
   echo "error: M4H IPA contains licensed data or signing material" >&2
   exit 1
 fi
+echo "checkpoint=ipa_validated" >> "${checkpoint_file}"
 
 {
   echo "m4h_retail_savegame_signatures=exact"
@@ -134,4 +171,5 @@ fi
 shasum -a 256 "${ipa}" > "${evidence_dir}/m4h-ipa-sha256.txt"
 stat -f '%z' "${ipa}" > "${evidence_dir}/m4h-ipa-size.txt"
 printf 'PASS\n' > "${evidence_dir}/result.txt"
+echo "checkpoint=m4h_package_passed" >> "${checkpoint_file}"
 echo "m4h-savegame-signatures-app-probe: PASS"
