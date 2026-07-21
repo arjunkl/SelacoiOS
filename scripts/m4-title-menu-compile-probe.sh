@@ -15,6 +15,7 @@ zvulkan_renderer_patcher="${repo_root}/scripts/patch-zvulkan-engine-renderer-ios
 title_menu_closure_patcher="${repo_root}/scripts/patch-gzselaco-title-menu-closure-ios-m4c.py"
 mach_class_registry_patcher="${repo_root}/scripts/patch-gzselaco-mach-class-registry-ios-m4d.py"
 zscript_diagnostics_patcher="${repo_root}/scripts/patch-gzselaco-zscript-diagnostics-ios-m4e.py"
+retail_savegame_patcher="${repo_root}/scripts/patch-gzselaco-savegame-virtuals-ios-m4f.py"
 runtime_overlay="${repo_root}/overlays/gzselaco-ios/i_runtime_bootstrap.mm"
 swapchain_overlay="${repo_root}/overlays/gzselaco-ios/i_swapchain_probe.mm"
 engine_init_overlay="${repo_root}/overlays/gzselaco-ios/i_engine_init_probe.mm"
@@ -38,13 +39,14 @@ for required_file in \
   "${title_menu_closure_patcher}" \
   "${mach_class_registry_patcher}" \
   "${zscript_diagnostics_patcher}" \
+  "${retail_savegame_patcher}" \
   "${runtime_overlay}" \
   "${swapchain_overlay}" \
   "${engine_init_overlay}" \
   "${engine_renderer_overlay}" \
   "${title_menu_closure_overlay}"; do
   if [[ ! -f "${required_file}" ]]; then
-    echo "error: Milestone 4E compile input is missing: ${required_file}" >&2
+    echo "error: Milestone 4F compile input is missing: ${required_file}" >&2
     exit 2
   fi
 done
@@ -99,6 +101,8 @@ new = (
     "    + 'python3 \"${repo_root}/scripts/patch-gzselaco-mach-class-registry-ios-m4d.py\" "
     "\"${source_dir}\"\\n'\n"
     "    + 'python3 \"${repo_root}/scripts/patch-gzselaco-zscript-diagnostics-ios-m4e.py\" "
+    "\"${source_dir}\"\\n'\n"
+    "    + 'python3 \"${repo_root}/scripts/patch-gzselaco-savegame-virtuals-ios-m4f.py\" "
     "\"${source_dir}\"\\n',\n"
 )
 if text.count(old) != 1:
