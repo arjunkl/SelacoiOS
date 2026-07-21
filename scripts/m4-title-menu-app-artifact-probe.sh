@@ -9,7 +9,7 @@ artifact_dir="${repo_root}/build/artifacts/m4-title-menu-app"
 
 for required_file in "${source_probe}" "${title_menu_compile_probe}"; do
   if [[ ! -f "${required_file}" ]]; then
-    echo "error: Milestone 4C app input is missing: ${required_file}" >&2
+    echo "error: Milestone 4D app input is missing: ${required_file}" >&2
     exit 2
   fi
 done
@@ -48,10 +48,10 @@ replacements = {
     "scripts/m4-engine-init-compile-probe.sh":
         "scripts/m4-title-menu-compile-probe.sh",
     "engine-init-app-probe:": "title-menu-app-probe:",
-    '"CFBundleShortVersionString": "0.6.0"': '"CFBundleShortVersionString": "0.7.3"',
-    '"CFBundleVersion": "6"': '"CFBundleVersion": "10"',
+    '"CFBundleShortVersionString": "0.6.0"': '"CFBundleShortVersionString": "0.7.4"',
+    '"CFBundleVersion": "6"': '"CFBundleVersion": "11"',
     'if [[ "${bundle_short_version}" != "0.6.0" || "${bundle_version}" != "6" ]]; then':
-        'if [[ "${bundle_short_version}" != "0.7.3" || "${bundle_version}" != "10" ]]; then',
+        'if [[ "${bundle_short_version}" != "0.7.4" || "${bundle_version}" != "11" ]]; then',
 }
 for old, new in replacements.items():
     if old not in text:
@@ -90,6 +90,8 @@ new_markers = '''for required_marker in \\
   'renderer_handoff_passed' \\
   'engine_volk_dispatch_ready' \\
   'engine_portability_extension_optional' \\
+  'native_class_registry_passed' \\
+  'native_class_registry_failed' \\
   'native_startup_window_bypassed' \\
   'engine_vulkan_instance_create_entered' \\
   'engine_metal_surface_create_passed' \\
@@ -135,11 +137,11 @@ bash "${driver}"
 engine_app="${artifact_dir}/Selaco-engine-init-probe-unsigned.app"
 engine_binary="${engine_app}/Selaco"
 if [[ ! -f "${engine_binary}" ]]; then
-  echo "error: Milestone 4C stable Engine Init app was not produced" >&2
+  echo "error: Milestone 4D stable Engine Init app was not produced" >&2
   exit 1
 fi
 
-strings "${engine_binary}" > "${evidence_dir}/m4c-runtime-strings.txt"
+strings "${engine_binary}" > "${evidence_dir}/m4d-runtime-strings.txt"
 for marker in \
   'M4C title/menu closure' \
   'title_menu_closure_selected' \
@@ -147,19 +149,59 @@ for marker in \
   'renderer_handoff_passed' \
   'engine_volk_dispatch_ready' \
   'engine_portability_extension_optional' \
+  'native_class_registry_passed' \
+  'native_class_registry_failed' \
   'engine_first_frame_presented' \
   'title_loop_started'; do
-  grep -Fq "${marker}" "${evidence_dir}/m4c-runtime-strings.txt"
+  grep -Fq "${marker}" "${evidence_dir}/m4d-runtime-strings.txt"
 done
 
+otool -l "${engine_binary}" > "${evidence_dir}/m4d-mach-o-load-commands.txt"
+python3 - "${evidence_dir}/m4d-mach-o-load-commands.txt" \
+  "${evidence_dir}/m4d-creg-section.txt" <<'PY'
+from __future__ import annotations
+
+import pathlib
+import sys
+
+load_commands = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
+lines = load_commands.splitlines()
+matches: list[tuple[str, int]] = []
+for index, line in enumerate(lines):
+    if line.strip() != "sectname creg":
+        continue
+    segment = "unknown"
+    size = 0
+    for detail in lines[index + 1:index + 12]:
+        parts = detail.split()
+        if len(parts) == 2 and parts[0] == "segname":
+            segment = parts[1]
+        elif len(parts) == 2 and parts[0] == "size":
+            size = int(parts[1], 16)
+    matches.append((segment, size))
+
+if not matches:
+    raise SystemExit("final Mach-O does not contain a creg section")
+if not any(size > 0 for _, size in matches):
+    raise SystemExit("final Mach-O creg section is empty")
+
+output = pathlib.Path(sys.argv[2])
+output.write_text(
+    "\n".join(f"segment={segment} size={size}" for segment, size in matches) + "\n",
+    encoding="utf-8",
+)
+PY
+
+cat "${evidence_dir}/m4d-creg-section.txt"
 echo "stable_bundle_identifier=am.arjunkl.selacoios.engineinit.m4" >> "${evidence_dir}/probe-manifest.txt"
 echo "stable_files_container=SelacoiOS Engine Init" >> "${evidence_dir}/probe-manifest.txt"
-echo "bundle_version=0.7.3(10)" >> "${evidence_dir}/probe-manifest.txt"
+echo "bundle_version=0.7.4(11)" >> "${evidence_dir}/probe-manifest.txt"
 echo "input_backend=inert_title_menu_only" >> "${evidence_dir}/probe-manifest.txt"
 echo "vr_backend=disabled" >> "${evidence_dir}/probe-manifest.txt"
 echo "statistics_transport=disabled" >> "${evidence_dir}/probe-manifest.txt"
 echo "vulkan_loader=zvulkan_target_uses_embedded_moltenvk" >> "${evidence_dir}/probe-manifest.txt"
 echo "portability_enumeration=optional_enable_if_advertised" >> "${evidence_dir}/probe-manifest.txt"
+echo "native_class_registry=mach_o_creg_retained_and_nonempty" >> "${evidence_dir}/probe-manifest.txt"
 echo "new_app_identity_allocated=no" >> "${evidence_dir}/probe-manifest.txt"
 echo "physical_execution=not_tested" >> "${evidence_dir}/probe-manifest.txt"
 printf 'PASS\n' > "${evidence_dir}/result.txt"
