@@ -55,7 +55,10 @@ public:
         builder.DebugLayer(vk_debug);
         builder.RequireExtension(VK_KHR_SURFACE_EXTENSION_NAME);
         builder.RequireExtension(VK_EXT_METAL_SURFACE_EXTENSION_NAME);
-        builder.RequireExtension(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+        builder.OptionalExtension(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+        SelacoIOSReportLicensedAssetProbe(
+            "engine_portability_extension_optional",
+            "VK_KHR_portability_enumeration is enabled only when MoltenVK advertises it");
         auto instance = builder.Create();
 
         SelacoIOSReportLicensedAssetProbe(
