@@ -1,4 +1,4 @@
-name: Milestone 4C Title Menu Platform Closure
+name: Milestone 4D Native Class Registry and Title Menu
 
 on:
   push:
@@ -26,6 +26,7 @@ on:
       - "scripts/patch-gzselaco-title-menu-ios-m4b.py"
       - "scripts/patch-zvulkan-engine-renderer-ios-m4b.py"
       - "scripts/patch-gzselaco-title-menu-closure-ios-m4c.py"
+      - "scripts/patch-gzselaco-mach-class-registry-ios-m4d.py"
       - "scripts/m0-full-engine-configure-probe.sh"
       - "scripts/m0-full-engine-compile-probe.sh"
       - "scripts/m0-full-engine-app-artifact-probe.sh"
@@ -37,6 +38,7 @@ on:
     paths:
       - "overlays/gzselaco-ios/i_title_menu_closure.cpp"
       - "scripts/patch-gzselaco-title-menu-closure-ios-m4c.py"
+      - "scripts/patch-gzselaco-mach-class-registry-ios-m4d.py"
       - "scripts/m4-title-menu-compile-probe.sh"
       - "scripts/m4-title-menu-app-artifact-probe.sh"
       - ".github/workflows/m4-title-menu.yml"
@@ -51,14 +53,14 @@ concurrency:
 
 jobs:
   arm64-iphoneos-title-menu:
-    name: full-engine iOS title and menu candidate
+    name: full-engine iOS retained registry and title menu candidate
     runs-on: macos-15
     timeout-minutes: 120
     steps:
       - name: Check out SelacoiOS
         uses: actions/checkout@v4
 
-      - name: Validate Milestone 4C inputs
+      - name: Validate Milestone 4D inputs
         run: |
           bash -n scripts/m0-full-engine-configure-probe.sh
           bash -n scripts/m0-full-engine-compile-probe.sh
@@ -78,11 +80,13 @@ jobs:
           python3 -m py_compile scripts/patch-gzselaco-title-menu-ios-m4b.py
           python3 -m py_compile scripts/patch-zvulkan-engine-renderer-ios-m4b.py
           python3 -m py_compile scripts/patch-gzselaco-title-menu-closure-ios-m4c.py
+          python3 -m py_compile scripts/patch-gzselaco-mach-class-registry-ios-m4d.py
           test -s overlays/gzselaco-ios/i_title_menu_closure.cpp
           command -v unzip
           command -v shasum
+          command -v otool
 
-      - name: Build and validate M4C title menu candidate
+      - name: Build and validate M4D retained-registry title menu candidate
         run: |
           real_mktemp="$(command -v mktemp)"
           shim_dir="${GITHUB_WORKSPACE}/build/m4-title-menu-shims"
@@ -105,15 +109,15 @@ jobs:
             echo "workflow_run_attempt=${GITHUB_RUN_ATTEMPT}"
             echo "stable_bundle_identifier=am.arjunkl.selacoios.engineinit.m4"
             echo "stable_files_container=SelacoiOS Engine Init"
-            echo "bundle_version=0.7.1(8)"
+            echo "bundle_version=0.7.4(11)"
             echo "job_id_available_after_run=true"
           } > build/evidence/m4-title-menu-app/workflow-identity.txt
 
-      - name: Preserve title menu evidence
+      - name: Preserve retained-registry title menu evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: selaco-m4c-title-menu-evidence
+          name: selaco-m4d-title-menu-evidence
           path: build/evidence/m4-title-menu-app
           if-no-files-found: warn
           retention-days: 14
@@ -122,7 +126,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: selaco-m4c-title-menu-unsigned-app
+          name: selaco-m4d-title-menu-unsigned-app
           path: build/artifacts/m4-title-menu-app/Selaco-engine-init-probe-unsigned-app.zip
           if-no-files-found: error
           retention-days: 14
@@ -131,7 +135,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: selaco-m4c-title-menu-unsigned-ipa
+          name: selaco-m4d-title-menu-unsigned-ipa
           path: build/artifacts/m4-title-menu-app/Selaco-engine-init-probe-unsigned.ipa
           if-no-files-found: error
           retention-days: 14
