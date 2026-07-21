@@ -45,8 +45,8 @@ replacements = {
     "build/artifacts/m4-engine-init-app": "build/artifacts/m4-engine-renderer-app",
     "build/work/m4-engine-init-app": "build/work/m4-engine-renderer-app",
     "build/evidence/m4-engine-init-compile": "build/evidence/m4-engine-renderer-compile",
-    'engine_init_compile_probe="${repo_root}/scripts/m4-engine-init-compile-probe.sh"':
-        'engine_init_compile_probe="${repo_root}/scripts/m4-engine-renderer-compile-probe.sh"',
+    "scripts/m4-engine-init-compile-probe.sh":
+        "scripts/m4-engine-renderer-compile-probe.sh",
     "engine-init-app-probe:": "engine-renderer-app-probe:",
     '"CFBundleShortVersionString": "0.6.0"': '"CFBundleShortVersionString": "0.7.0"',
     '"CFBundleVersion": "6"': '"CFBundleVersion": "7"',
