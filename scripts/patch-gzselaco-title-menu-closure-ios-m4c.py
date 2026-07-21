@@ -70,6 +70,32 @@ def main() -> int:
 
     replace_once(
         d_main,
+        '#if defined(SELACO_IOS_ENGINE_INIT_PROBE)\n'
+        'extern "C" const char *SelacoIOSM4RendererStrategy();\n'
+        '#endif\n',
+        '#if defined(SELACO_IOS_ENGINE_INIT_PROBE)\n'
+        'extern "C" const char *SelacoIOSM4RendererStrategy();\n'
+        '#endif\n'
+        '#if defined(SELACO_IOS_TITLE_MENU_CLOSURE)\n'
+        'extern "C" const char *SelacoIOSM4CTitleMenuClosure();\n'
+        '#endif\n',
+        "declare the retained Milestone 4C closure marker",
+    )
+    replace_once(
+        d_main,
+        '#if defined(SELACO_IOS_ENGINE_RENDERER_HANDOFF)\n'
+        '\tSelacoIOSReportLicensedAssetProbe("v_init2_entered", SelacoIOSM4RendererStrategy());\n'
+        '#endif\n',
+        '#if defined(SELACO_IOS_TITLE_MENU_CLOSURE)\n'
+        '\tSelacoIOSReportLicensedAssetProbe("title_menu_closure_selected", SelacoIOSM4CTitleMenuClosure());\n'
+        '#endif\n'
+        '#if defined(SELACO_IOS_ENGINE_RENDERER_HANDOFF)\n'
+        '\tSelacoIOSReportLicensedAssetProbe("v_init2_entered", SelacoIOSM4RendererStrategy());\n'
+        '#endif\n',
+        "persist the selected title/menu closure before renderer initialization",
+    )
+    replace_once(
+        d_main,
         "\t\tStartWindow = FStartupScreen::CreateInstance (TexMan.GuesstimateNumTextures() + 5);\n",
         "#if defined(SELACO_IOS_TITLE_MENU_CLOSURE)\n"
         "\t\tSelacoIOSReportLicensedAssetProbe(\"native_startup_window_bypassed\", \"using inert FStartupScreen base while engine-rendered startup remains active\");\n"
