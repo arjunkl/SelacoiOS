@@ -21,6 +21,7 @@ on:
     paths:
       - "scripts/patch-gzselaco-savegame-signatures-ios-m4h.py"
       - "scripts/m4-title-menu-compile-probe.sh"
+      - "scripts/m4h-savegame-signatures-app-artifact-probe.sh"
       - ".github/workflows/m4h-savegame-signatures.yml"
   workflow_dispatch:
 
@@ -48,6 +49,7 @@ jobs:
           bash -n scripts/m0-controlled-mktemp.sh
           bash -n scripts/m4-title-menu-compile-probe.sh
           bash -n scripts/m4-title-menu-app-artifact-probe.sh
+          bash -n scripts/m4h-savegame-signatures-app-artifact-probe.sh
           python3 -m py_compile scripts/patch-gzselaco-savegame-signatures-ios-m4h.py
           python3 -m py_compile scripts/patch-gzselaco-override-signature-diagnostics-ios-m4g.py
           python3 -m py_compile scripts/patch-gzselaco-savegame-virtuals-ios-m4f.py
@@ -60,7 +62,6 @@ jobs:
 
       - name: Build and validate M4H exact signature candidate
         run: |
-          set -Eeuo pipefail
           real_mktemp="$(command -v mktemp)"
           shim_dir="${GITHUB_WORKSPACE}/build/m4-title-menu-shims"
           controlled_root="${GITHUB_WORKSPACE}/build/work/m4-title-menu-app/tmp"
@@ -70,56 +71,7 @@ jobs:
           export SELACOIOS_REAL_MKTEMP="${real_mktemp}"
           export SELACOIOS_CONTROLLED_TMP_ROOT="${controlled_root}"
           export PATH="${shim_dir}:${PATH}"
-
-          bash scripts/m4-title-menu-app-artifact-probe.sh
-
-          evidence_dir="${GITHUB_WORKSPACE}/build/evidence/m4-title-menu-app"
-          artifact_dir="${GITHUB_WORKSPACE}/build/artifacts/m4-title-menu-app"
-          app="${artifact_dir}/Selaco-engine-init-probe-unsigned.app"
-          binary="${app}/Selaco"
-          public_support="${app}/gzdoom.pk3"
-          info_plist="${app}/Info.plist"
-          app_zip="${artifact_dir}/Selaco-engine-init-probe-unsigned-app.zip"
-          ipa="${artifact_dir}/Selaco-engine-init-probe-unsigned.ipa"
-
-          strings "${binary}" > "${evidence_dir}/m4h-runtime-strings.txt"
-          grep -Fq 'SELACO_IOS_M4G class=' "${evidence_dir}/m4h-runtime-strings.txt"
-          grep -Fq 'zscript-compile.log' "${evidence_dir}/m4h-runtime-strings.txt"
-
-          unzip -p "${public_support}" zscript/events.zs > "${evidence_dir}/m4h-public-events.zs"
-          grep -Fq 'SELACO_IOS_M4H_RETAIL_SAVEGAME_SIGNATURES' "${evidence_dir}/m4h-public-events.zs"
-          grep -Fq 'virtual int GetSavegameFlags(bool quicksave, bool autosave)' "${evidence_dir}/m4h-public-events.zs"
-          grep -Fq 'virtual String, Int GetSavegameTitle(int type)' "${evidence_dir}/m4h-public-events.zs"
-          ! grep -Fq 'virtual int GetSavegameFlags()' "${evidence_dir}/m4h-public-events.zs"
-          ! grep -Fq 'virtual String GetSavegameTitle()' "${evidence_dir}/m4h-public-events.zs"
-
-          /usr/libexec/PlistBuddy -c 'Set :CFBundleShortVersionString 0.7.8' "${info_plist}"
-          /usr/libexec/PlistBuddy -c 'Set :CFBundleVersion 15' "${info_plist}"
-          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "${info_plist}")" = 'am.arjunkl.selacoios.engineinit.m4'
-          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "${info_plist}")" = '0.7.8'
-          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "${info_plist}")" = '15'
-
-          rm -f "${app_zip}" "${ipa}"
-          ditto -c -k --sequesterRsrc --keepParent "${app}" "${app_zip}"
-          package_root="$(mktemp -d)"
-          trap 'rm -rf "${package_root}"' EXIT
-          mkdir -p "${package_root}/Payload"
-          ditto "${app}" "${package_root}/Payload/Selaco.app"
-          (cd "${package_root}" && zip -qry "${ipa}" Payload)
-
-          unzip -l "${ipa}" > "${evidence_dir}/m4h-ipa-inventory.txt"
-          ! grep -Eiq '(^|/)(Selaco\.ipk3|[^/]+\.mobileprovision|[^/]+\.p12)$' "${evidence_dir}/m4h-ipa-inventory.txt"
-          shasum -a 256 "${ipa}" > "${evidence_dir}/m4h-ipa-sha256.txt"
-          stat -f '%z' "${ipa}" > "${evidence_dir}/m4h-ipa-size.txt"
-          {
-            echo 'm4h_retail_savegame_signatures=exact'
-            echo 'get_savegame_flags=returns_int_args_bool_bool'
-            echo 'get_savegame_title=returns_string_int_args_int'
-            echo 'bundle_version=0.7.8(15)'
-            echo 'commercial_asset_in_ci=no'
-            echo 'physical_execution=not_tested'
-          } >> "${evidence_dir}/probe-manifest.txt"
-          printf 'PASS\n' > "${evidence_dir}/result.txt"
+          bash scripts/m4h-savegame-signatures-app-artifact-probe.sh
 
       - name: Record workflow identity
         if: always()
