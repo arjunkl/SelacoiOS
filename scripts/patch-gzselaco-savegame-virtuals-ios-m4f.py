@@ -33,16 +33,20 @@ def main() -> int:
         if not path.is_file():
             raise RuntimeError(f"Milestone 4F prerequisite is missing: {path}")
 
+    savegame_comment = (
+        '\tvirtual String, Int GetSavegameComment() { return "", 0; }\t'
+        '              // @Cockatrice - Supply additional information to the savegame comment field during a save\n'
+    )
     replace_once(
         events_zs,
-        '    virtual\tString, Int GetSavegameComment() { return "", 0; }\t              // @Cockatrice - Supply additional information to the savegame comment field during a save\n',
-        '    virtual\tString, Int GetSavegameComment() { return "", 0; }\t              // @Cockatrice - Supply additional information to the savegame comment field during a save\n'
-        '    // Selaco retail compatibility. The licensed game scripts override these\n'
-        '    // hooks, but the pinned public engine support archive omitted their base\n'
-        '    // declarations. Safe defaults preserve existing public-engine behavior.\n'
-        '    virtual int GetSavegameFlags() { return 0; }\n'
-        '    virtual String GetSavegameTitle() { return ""; }\n'
-        '    // SELACO_IOS_M4F_RETAIL_SAVEGAME_VIRTUALS\n',
+        savegame_comment,
+        savegame_comment
+        + '    // Selaco retail compatibility. The licensed game scripts override these\n'
+        + '    // hooks, but the pinned public engine support archive omitted their base\n'
+        + '    // declarations. Safe defaults preserve existing public-engine behavior.\n'
+        + '    virtual int GetSavegameFlags() { return 0; }\n'
+        + '    virtual String GetSavegameTitle() { return ""; }\n'
+        + '    // SELACO_IOS_M4F_RETAIL_SAVEGAME_VIRTUALS\n',
         "restore the retail savegame virtual declarations",
     )
 
