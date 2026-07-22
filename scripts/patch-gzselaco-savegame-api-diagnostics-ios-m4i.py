@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import pathlib
+import re
 import sys
 
 
@@ -17,12 +18,12 @@ def replace_once(path: pathlib.Path, old: str, new: str, description: str) -> No
     path.write_text(text.replace(old, new, 1), encoding="utf-8")
 
 
-def replace_in_region(
+def replace_regex_in_region(
     path: pathlib.Path,
     start_marker: str,
     end_marker: str,
-    old: str,
-    new: str,
+    pattern: str,
+    replacement: str,
     description: str,
 ) -> None:
     text = path.read_text(encoding="utf-8")
@@ -32,14 +33,14 @@ def replace_in_region(
     end = text.find(end_marker, start + len(start_marker))
     if end < 0:
         raise RuntimeError(f"{description}: end marker is missing in {path}")
+
     region = text[start:end]
-    count = region.count(old)
+    updated, count = re.subn(pattern, replacement, region, count=1, flags=re.MULTILINE)
     if count != 1:
         raise RuntimeError(
-            f"{description}: expected one exact regional match in {path}, found {count}"
+            f"{description}: expected one structural match in {path}, found {count}"
         )
-    region = region.replace(old, new, 1)
-    path.write_text(text[:start] + region + text[end:], encoding="utf-8")
+    path.write_text(text[:start] + updated + text[end:], encoding="utf-8")
 
 
 def main() -> int:
@@ -66,101 +67,105 @@ def main() -> int:
         "enable bounded retail save-menu API diagnostics",
     )
 
-    replace_in_region(
+    identifier_replacement = """#if defined(SELACO_IOS_SAVEGAME_API_DIAGNOSTICS)
+\tconst char *ownerClass = ctx.Class == nullptr
+\t\t? "<none>"
+\t\t: ctx.Class->TypeName.GetChars();
+\tconst char *ownerFunction = ctx.Function == nullptr
+\t\t? "<none>"
+\t\t: ctx.Function->SymbolName.GetChars();
+\tconst char *selfClass = (ctx.Function == nullptr ||
+\t\tctx.Function->Variants[0].SelfClass == nullptr)
+\t\t? "<none>"
+\t\t: ctx.Function->Variants[0].SelfClass->TypeName.GetChars();
+\tScriptPosition.Message(
+\t\tMSG_ERROR,
+\t\t"Unknown identifier '%s' [SELACO_IOS_M4I class=%s function=%s self=%s]",
+\t\tIdentifier.GetChars(), ownerClass, ownerFunction, selfClass);
+#else
+\tScriptPosition.Message(MSG_ERROR, "Unknown identifier '%s'", Identifier.GetChars());
+#endif
+\tdelete this;
+\treturn nullptr;
+"""
+    replace_regex_in_region(
         codegen,
         "FxExpression *FxIdentifier::Resolve(FCompileContext& ctx)\n",
         "foundit:\n",
-        '    ScriptPosition.Message(MSG_ERROR, "Unknown identifier \'%s\'", Identifier.GetChars());\n'
-        "    delete this;\n"
-        "    return nullptr;\n",
-        "#if defined(SELACO_IOS_SAVEGAME_API_DIAGNOSTICS)\n"
-        "    const char *ownerClass = ctx.Class == nullptr\n"
-        "        ? \"<none>\"\n"
-        "        : ctx.Class->TypeName.GetChars();\n"
-        "    const char *ownerFunction = ctx.Function == nullptr\n"
-        "        ? \"<none>\"\n"
-        "        : ctx.Function->SymbolName.GetChars();\n"
-        "    const char *selfClass = (ctx.Function == nullptr ||\n"
-        "        ctx.Function->Variants[0].SelfClass == nullptr)\n"
-        "        ? \"<none>\"\n"
-        "        : ctx.Function->Variants[0].SelfClass->TypeName.GetChars();\n"
-        "    ScriptPosition.Message(\n"
-        "        MSG_ERROR,\n"
-        "        \"Unknown identifier '%s' [SELACO_IOS_M4I class=%s function=%s self=%s]\",\n"
-        "        Identifier.GetChars(), ownerClass, ownerFunction, selfClass);\n"
-        "#else\n"
-        "    ScriptPosition.Message(MSG_ERROR, \"Unknown identifier '%s'\", Identifier.GetChars());\n"
-        "#endif\n"
-        "    delete this;\n"
-        "    return nullptr;\n",
+        r'^[ \t]*ScriptPosition\.Message\(MSG_ERROR, "Unknown identifier \'%s\'", Identifier\.GetChars\(\)\);\n'
+        r'^[ \t]*delete this;\n'
+        r'^[ \t]*return nullptr;\n',
+        identifier_replacement,
         "augment unresolved identifiers with their retail script ownership context",
     )
 
-    replace_in_region(
+    call_replacement = """#if defined(SELACO_IOS_SAVEGAME_API_DIAGNOSTICS)
+\t\t\tFString expectedTypes;
+\t\t\tfor (unsigned index = implicit; index < argtypes.Size(); ++index)
+\t\t\t{
+\t\t\t\tif (index != implicit) expectedTypes += ",";
+\t\t\t\texpectedTypes += argtypes[index] == nullptr
+\t\t\t\t\t? "<vararg>"
+\t\t\t\t\t: argtypes[index]->DescriptiveName();
+\t\t\t}
+\t\t\tif (expectedTypes.IsEmpty()) expectedTypes = "<none>";
+
+\t\t\tFString actualTypes;
+\t\t\tfor (unsigned index = 0; index < ArgList.Size(); ++index)
+\t\t\t{
+\t\t\t\tif (index != 0) actualTypes += ",";
+\t\t\t\tif (ArgList[index] == nullptr)
+\t\t\t\t{
+\t\t\t\t\tactualTypes += "<null>";
+\t\t\t\t\tcontinue;
+\t\t\t\t}
+\t\t\t\tArgList[index] = ArgList[index]->Resolve(ctx);
+\t\t\t\tif (ArgList[index] == nullptr || ArgList[index]->ValueType == nullptr)
+\t\t\t\t{
+\t\t\t\t\tactualTypes += "<unresolved>";
+\t\t\t\t}
+\t\t\t\telse
+\t\t\t\t{
+\t\t\t\t\tactualTypes += ArgList[index]->ValueType->DescriptiveName();
+\t\t\t\t}
+\t\t\t}
+\t\t\tif (actualTypes.IsEmpty()) actualTypes = "<none>";
+
+\t\t\tconst char *callerClass = ctx.Class == nullptr
+\t\t\t\t? "<none>"
+\t\t\t\t: ctx.Class->TypeName.GetChars();
+\t\t\tconst char *callerFunction = ctx.Function == nullptr
+\t\t\t\t? "<none>"
+\t\t\t\t: ctx.Function->SymbolName.GetChars();
+\t\t\tconst char *targetClass = Function->OwningClass == nullptr
+\t\t\t\t? "<none>"
+\t\t\t\t: Function->OwningClass->TypeName.GetChars();
+\t\t\tconst unsigned declaredExplicit = argtypes.Size() >= implicit
+\t\t\t\t? unsigned(argtypes.Size() - implicit)
+\t\t\t\t: 0;
+\t\t\tScriptPosition.Message(
+\t\t\t\tMSG_ERROR,
+\t\t\t\t"Too many arguments in call to %s "
+\t\t\t\t"[SELACO_IOS_M4I caller_class=%s caller_function=%s "
+\t\t\t\t"target_class=%s actual_count=%u declared_explicit=%u "
+\t\t\t\t"implicit=%u expected_types=%s actual_types=%s]",
+\t\t\t\tFunction->SymbolName.GetChars(), callerClass, callerFunction,
+\t\t\t\ttargetClass, unsigned(ArgList.Size()), declaredExplicit, implicit,
+\t\t\t\texpectedTypes.GetChars(), actualTypes.GetChars());
+#else
+\t\t\tScriptPosition.Message(MSG_ERROR, "Too many arguments in call to %s", Function->SymbolName.GetChars());
+#endif
+\t\t\tdelete this;
+\t\t\treturn nullptr;
+"""
+    replace_regex_in_region(
         codegen,
         "FxExpression *FxVMFunctionCall::Resolve(FCompileContext& ctx)\n",
         "\t\tbool isvararg = (argtypes.Last() == nullptr);\n",
-        '\t\t\tScriptPosition.Message(MSG_ERROR, "Too many arguments in call to %s", Function->SymbolName.GetChars());\n'
-        "\t\t\tdelete this;\n"
-        "\t\t\treturn nullptr;\n",
-        "#if defined(SELACO_IOS_SAVEGAME_API_DIAGNOSTICS)\n"
-        "            FString expectedTypes;\n"
-        "            for (unsigned index = implicit; index < argtypes.Size(); ++index)\n"
-        "            {\n"
-        "                if (index != implicit) expectedTypes += \",\";\n"
-        "                expectedTypes += argtypes[index] == nullptr\n"
-        "                    ? \"<vararg>\"\n"
-        "                    : argtypes[index]->DescriptiveName();\n"
-        "            }\n"
-        "            if (expectedTypes.IsEmpty()) expectedTypes = \"<none>\";\n"
-        "\n"
-        "            FString actualTypes;\n"
-        "            for (unsigned index = 0; index < ArgList.Size(); ++index)\n"
-        "            {\n"
-        "                if (index != 0) actualTypes += \",\";\n"
-        "                if (ArgList[index] == nullptr)\n"
-        "                {\n"
-        "                    actualTypes += \"<null>\";\n"
-        "                    continue;\n"
-        "                }\n"
-        "                ArgList[index] = ArgList[index]->Resolve(ctx);\n"
-        "                if (ArgList[index] == nullptr || ArgList[index]->ValueType == nullptr)\n"
-        "                {\n"
-        "                    actualTypes += \"<unresolved>\";\n"
-        "                }\n"
-        "                else\n"
-        "                {\n"
-        "                    actualTypes += ArgList[index]->ValueType->DescriptiveName();\n"
-        "                }\n"
-        "            }\n"
-        "            if (actualTypes.IsEmpty()) actualTypes = \"<none>\";\n"
-        "\n"
-        "            const char *callerClass = ctx.Class == nullptr\n"
-        "                ? \"<none>\"\n"
-        "                : ctx.Class->TypeName.GetChars();\n"
-        "            const char *callerFunction = ctx.Function == nullptr\n"
-        "                ? \"<none>\"\n"
-        "                : ctx.Function->SymbolName.GetChars();\n"
-        "            const char *targetClass = Function->OwningClass == nullptr\n"
-        "                ? \"<none>\"\n"
-        "                : Function->OwningClass->TypeName.GetChars();\n"
-        "            const unsigned declaredExplicit = argtypes.Size() >= implicit\n"
-        "                ? unsigned(argtypes.Size() - implicit)\n"
-        "                : 0;\n"
-        "            ScriptPosition.Message(\n"
-        "                MSG_ERROR,\n"
-        "                \"Too many arguments in call to %s \"\n"
-        "                \"[SELACO_IOS_M4I caller_class=%s caller_function=%s \"\n"
-        "                \"target_class=%s actual_count=%u declared_explicit=%u \"\n"
-        "                \"implicit=%u expected_types=%s actual_types=%s]\",\n"
-        "                Function->SymbolName.GetChars(), callerClass, callerFunction,\n"
-        "                targetClass, unsigned(ArgList.Size()), declaredExplicit, implicit,\n"
-        "                expectedTypes.GetChars(), actualTypes.GetChars());\n"
-        "#else\n"
-        "            ScriptPosition.Message(MSG_ERROR, \"Too many arguments in call to %s\", Function->SymbolName.GetChars());\n"
-        "#endif\n"
-        "            delete this;\n"
-        "            return nullptr;\n",
+        r'^[ \t]*ScriptPosition\.Message\(MSG_ERROR, "Too many arguments in call to %s", Function->SymbolName\.GetChars\(\)\);\n'
+        r'^[ \t]*delete this;\n'
+        r'^[ \t]*return nullptr;\n',
+        call_replacement,
         "report the retail DoSave caller, target, counts, and resolvable argument types",
     )
 
