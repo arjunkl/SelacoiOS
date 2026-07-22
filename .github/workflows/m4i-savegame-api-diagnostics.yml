@@ -16,12 +16,14 @@ on:
       - "scripts/m4-title-menu-app-artifact-probe.sh"
       - "scripts/m4i-savegame-api-compile-probe.sh"
       - "scripts/m4i-savegame-api-diagnostics-app-artifact-probe.sh"
+      - "scripts/m4i-savegame-api-diagnostics-app-artifact-probe-v2.sh"
       - ".github/workflows/m4i-savegame-api-diagnostics.yml"
   pull_request:
     paths:
       - "scripts/patch-gzselaco-savegame-api-diagnostics-ios-m4i.py"
       - "scripts/m4i-savegame-api-compile-probe.sh"
       - "scripts/m4i-savegame-api-diagnostics-app-artifact-probe.sh"
+      - "scripts/m4i-savegame-api-diagnostics-app-artifact-probe-v2.sh"
       - ".github/workflows/m4i-savegame-api-diagnostics.yml"
   workflow_dispatch:
 
@@ -50,6 +52,7 @@ jobs:
           bash -n scripts/m4-title-menu-app-artifact-probe.sh
           bash -n scripts/m4i-savegame-api-compile-probe.sh
           bash -n scripts/m4i-savegame-api-diagnostics-app-artifact-probe.sh
+          bash -n scripts/m4i-savegame-api-diagnostics-app-artifact-probe-v2.sh
           python3 -m py_compile scripts/patch-gzselaco-savegame-api-diagnostics-ios-m4i.py
           python3 -m py_compile scripts/patch-gzselaco-savegame-signatures-ios-m4h.py
           python3 -m py_compile scripts/patch-gzselaco-override-signature-diagnostics-ios-m4g.py
@@ -72,7 +75,7 @@ jobs:
           export SELACOIOS_REAL_MKTEMP="${real_mktemp}"
           export SELACOIOS_CONTROLLED_TMP_ROOT="${controlled_root}"
           export PATH="${shim_dir}:${PATH}"
-          bash scripts/m4i-savegame-api-diagnostics-app-artifact-probe.sh
+          bash scripts/m4i-savegame-api-diagnostics-app-artifact-probe-v2.sh
 
       - name: Record workflow identity
         if: always()
