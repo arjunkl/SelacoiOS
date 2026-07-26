@@ -67,7 +67,15 @@ def main() -> int:
         "enable bounded retail save-menu API diagnostics",
     )
 
-    identifier_replacement = """#if defined(SELACO_IOS_SAVEGAME_API_DIAGNOSTICS)
+    identifier_resolve_marker = (
+        "FxExpression *FxIdentifier::Resolve(FCompileContext& ctx)\n"
+    )
+    identifier_helper = """#if defined(SELACO_IOS_SAVEGAME_API_DIAGNOSTICS)
+static void ReportSelacoIOSM4IUnknownIdentifier(
+\tFScriptPosition &position,
+\tconst FName &identifier,
+\tFCompileContext &ctx)
+{
 \tconst char *ownerClass = ctx.Class == nullptr
 \t\t? "<none>"
 \t\t: ctx.Class->TypeName.GetChars();
@@ -78,10 +86,23 @@ def main() -> int:
 \t\tctx.Function->Variants[0].SelfClass == nullptr)
 \t\t? "<none>"
 \t\t: ctx.Function->Variants[0].SelfClass->TypeName.GetChars();
-\tScriptPosition.Message(
+\tposition.Message(
 \t\tMSG_ERROR,
 \t\t"Unknown identifier '%s' [SELACO_IOS_M4I class=%s function=%s self=%s]",
-\t\tIdentifier.GetChars(), ownerClass, ownerFunction, selfClass);
+\t\tidentifier.GetChars(), ownerClass, ownerFunction, selfClass);
+}
+#endif
+
+"""
+    replace_once(
+        codegen,
+        identifier_resolve_marker,
+        identifier_helper + identifier_resolve_marker,
+        "add a goto-safe unresolved identifier diagnostic helper",
+    )
+
+    identifier_replacement = """#if defined(SELACO_IOS_SAVEGAME_API_DIAGNOSTICS)
+\tReportSelacoIOSM4IUnknownIdentifier(ScriptPosition, Identifier, ctx);
 #else
 \tScriptPosition.Message(MSG_ERROR, "Unknown identifier '%s'", Identifier.GetChars());
 #endif
@@ -90,7 +111,7 @@ def main() -> int:
 """
     replace_regex_in_region(
         codegen,
-        "FxExpression *FxIdentifier::Resolve(FCompileContext& ctx)\n",
+        identifier_resolve_marker,
         "foundit:\n",
         r'^[ \t]*ScriptPosition\.Message\(MSG_ERROR, "Unknown identifier \'%s\'", Identifier\.GetChars\(\)\);\n'
         r'^[ \t]*delete this;\n'
