@@ -125,4 +125,3 @@ jobs:
           path: build/artifacts/m4-title-menu-app/Selaco-engine-init-probe-unsigned.ipa
           if-no-files-found: error
           retention-days: 14
-

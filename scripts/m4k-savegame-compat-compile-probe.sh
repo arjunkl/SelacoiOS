@@ -80,4 +80,3 @@ PY
 
 bash -n "${driver}"
 bash "${driver}"
-
