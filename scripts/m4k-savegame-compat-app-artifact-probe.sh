@@ -78,7 +78,11 @@ echo "checkpoint=m4k_transient_compatibility_surface_validated" \
   >> "${checkpoint_file}"
 
 compile_patch="${repo_root}/build/evidence/m4k-savegame-compat-compile/applied-gzselaco-ios.patch"
-python3 - "${compile_patch}" "${evidence_dir}/m4k-no-write-proof.txt" <<'PYM4KPROOF'
+python3 - \
+  "${compile_patch}" \
+  "${evidence_dir}/m4k-no-write-proof.txt" \
+  "${repo_root}/scripts/patch-gzselaco-savegame-compat-ios-m4k.py" \
+  <<'PYM4KPROOF'
 from __future__ import annotations
 
 import pathlib
@@ -86,6 +90,7 @@ import sys
 
 patch = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
 proof = pathlib.Path(sys.argv[2])
+patcher = pathlib.Path(sys.argv[3]).read_text(encoding="utf-8")
 
 required = (
     "SELACO_IOS_M4K_COMPAT field=levelnum",
@@ -117,28 +122,30 @@ if "SELACO_IOS_M4K_COMPAT field=info" in patch:
 if "+class SavegameSlotControl" in patch or "+class SavegameSlotControl :" in patch:
     raise SystemExit("retail SavegameSlotControl hierarchy was modified")
 
-guard_order = {
-    "SavegameManager.RemoveSaveSlot": (
-        "path=SavegameManager.RemoveSaveSlot",
-        "RemoveFile(",
-    ),
-    "SavegameManager.DoSave": (
-        "path=SavegameManager.DoSave",
-        "PerformSaveGame(",
-    ),
-    "G_SaveGame": ("path=G_SaveGame", "sendsave = true"),
-    "G_DoSaveGame": ("path=G_DoSaveGame", "savegame_content"),
+guards = {
+    "SavegameManager.RemoveSaveSlot": "path=SavegameManager.RemoveSaveSlot",
+    "SavegameManager.DoSave": "path=SavegameManager.DoSave",
+    "G_SaveGame": "path=G_SaveGame",
+    "G_DoSaveGame": "path=G_DoSaveGame",
 }
-for name, (guard, write_boundary) in guard_order.items():
+for name, guard in guards.items():
     start = patch.find(guard)
     if start < 0:
         raise SystemExit(f"{name} guard missing")
-    boundary = patch.find(write_boundary, start)
-    if boundary < 0:
-        raise SystemExit(f"{name} downstream boundary missing")
-    abort = patch.find("I_Error(", start, boundary)
+    abort = patch.find("I_Error(", start, start + 1000)
     if abort < 0:
-        raise SystemExit(f"{name} guard does not abort before {write_boundary}")
+        raise SystemExit(f"{name} guard has no bounded abort")
+
+for source_order_check in (
+    "save deletion guard precedes RemoveFile",
+    "manager save guard precedes PerformSaveGame",
+    "global save guard precedes scheduling logic",
+    "global serialization guard precedes snapshot allocation",
+):
+    if source_order_check not in patcher:
+        raise SystemExit(
+            f"M4K patcher missing source-order proof: {source_order_check}"
+        )
 
 proof.write_text(
     "compatibility_owner=Object\n"
@@ -150,6 +157,7 @@ proof.write_text(
     "SavegameSlotControl_hierarchy_changed=no\n"
     "original_two_argument_DoSave_changed=no\n"
     "three_argument_adapter_calls_real_save=no\n"
+    "source_order_verified_during_patcher_application=yes\n"
     "RemoveSaveSlot_aborts_before_RemoveFile=yes\n"
     "SavegameManager_DoSave_aborts_before_PerformSaveGame=yes\n"
     "G_SaveGame_aborts_before_save_scheduling=yes\n"

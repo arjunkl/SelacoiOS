@@ -22,6 +22,20 @@ def require_text(path: pathlib.Path, needle: str, description: str) -> None:
         raise RuntimeError(f"{description}: missing from {path}")
 
 
+def require_order(
+    path: pathlib.Path, needles: tuple[str, ...], description: str
+) -> None:
+    text = path.read_text(encoding="utf-8")
+    cursor = -1
+    for needle in needles:
+        offset = text.find(needle, cursor + 1)
+        if offset < 0:
+            raise RuntimeError(
+                f"{description}: missing ordered marker {needle!r} in {path}"
+            )
+        cursor = offset
+
+
 def main() -> int:
     if len(sys.argv) != 2:
         print(
@@ -247,6 +261,43 @@ static void ReportSelacoIOSM4KCompatibilityField(
     )
     require_text(g_game, "path=G_SaveGame no_write=1", "G_SaveGame guard")
     require_text(g_game, "path=G_DoSaveGame no_write=1", "G_DoSaveGame guard")
+
+    require_order(
+        savegamemanager,
+        (
+            "path=SavegameManager.RemoveSaveSlot",
+            "I_Error(",
+            "RemoveFile(",
+        ),
+        "save deletion guard precedes RemoveFile",
+    )
+    require_order(
+        savegamemanager,
+        (
+            "path=SavegameManager.DoSave",
+            "I_Error(",
+            "PerformSaveGame(",
+        ),
+        "manager save guard precedes PerformSaveGame",
+    )
+    require_order(
+        g_game,
+        (
+            "path=G_SaveGame",
+            "I_Error(",
+            "if (sendsave || gameaction == ga_savegame)",
+        ),
+        "global save guard precedes scheduling logic",
+    )
+    require_order(
+        g_game,
+        (
+            "path=G_DoSaveGame",
+            "I_Error(",
+            "TArray<FCompressedBuffer> savegame_content;",
+        ),
+        "global serialization guard precedes snapshot allocation",
+    )
 
     if "FSerializer" in compatibility_text or "SaveGames" in compatibility_text:
         raise RuntimeError("script compatibility surface unexpectedly touches saves")
