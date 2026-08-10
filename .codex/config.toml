@@ -1,0 +1,21 @@
+[mcp_servers.codebase-memory]
+command = "./scripts/start-codebase-memory-mcp.sh"
+startup_timeout_sec = 30
+tool_timeout_sec = 120
+enabled = true
+required = false
+default_tools_approval_mode = "approve"
+enabled_tools = [
+  "index_repository",
+  "search_graph",
+  "query_graph",
+  "trace_path",
+  "get_code_snippet",
+  "get_graph_schema",
+  "get_architecture",
+  "search_code",
+  "list_projects",
+  "index_status",
+  "check_index_coverage",
+  "detect_changes",
+]
