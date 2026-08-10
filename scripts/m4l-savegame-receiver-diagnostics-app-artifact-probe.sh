@@ -38,16 +38,25 @@ text = text.replace(
     "build/evidence/m4l-savegame-receiver-compile",
 )
 
-old_markers = r"""  'SELACO_IOS_M4J_DOSAVE_NO_WRITE' \\
+old_markers = r"""  'SELACO_IOS_M4J identifier=' \\
+  'parent_chain=' \\
+  'usage=' \\
+  'expected_type=' \\
+  'SELACO_IOS_M4J_DOSAVE_ADAPTER' \\
+  'SELACO_IOS_M4J_DOSAVE_NO_WRITE' \\
   'write_attempted=0' \\
   'zscript-compile.log' \\
 """
-new_markers = r"""  'SELACO_IOS_M4J_DOSAVE_NO_WRITE' \\
-  'write_attempted=0' \\
-  'SELACO_IOS_M4L_UNKNOWN_MEMBER' \\
+new_markers = r"""  'SELACO_IOS_M4L_UNKNOWN_MEMBER' \\
+  'parent_chain=' \\
+  'usage=' \\
+  'expected_type=' \\
   'receiver_type=' \\
   'receiver_kind=' \\
   'requested_member=' \\
+  'SELACO_IOS_M4J_DOSAVE_ADAPTER' \\
+  'SELACO_IOS_M4J_DOSAVE_NO_WRITE' \\
+  'write_attempted=0' \\
   'zscript-compile.log' \\
 """
 if text.count(old_markers) != 1:
