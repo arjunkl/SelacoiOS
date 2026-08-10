@@ -1,0 +1,57 @@
+name: Milestone 1 Runtime Bootstrap IPA Repack
+
+on:
+  push:
+    branches:
+      - "agent/**"
+    paths:
+      - "scripts/m1-repack-runtime-ipa-from-artifact.sh"
+      - ".github/workflows/m1-runtime-bootstrap-ipa-repack.yml"
+  pull_request:
+    paths:
+      - "scripts/m1-repack-runtime-ipa-from-artifact.sh"
+      - ".github/workflows/m1-runtime-bootstrap-ipa-repack.yml"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: m1-runtime-ipa-repack-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  repack-runtime-ipa:
+    name: Repack proven runtime app as unsigned IPA
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - name: Check out SelacoiOS
+        uses: actions/checkout@v4
+
+      - name: Validate repack script
+        run: bash -n scripts/m1-repack-runtime-ipa-from-artifact.sh
+
+      - name: Download, repack, and validate IPA
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: bash scripts/m1-repack-runtime-ipa-from-artifact.sh
+
+      - name: Preserve repack evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selaco-m1-runtime-bootstrap-ipa-repack-evidence
+          path: build/evidence/m1-runtime-bootstrap-ipa-repack
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Publish unsigned runtime bootstrap IPA
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selaco-m1-runtime-bootstrap-unsigned-ipa
+          path: build/artifacts/m1-runtime-bootstrap-ipa-repack/Selaco-runtime-bootstrap-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 14

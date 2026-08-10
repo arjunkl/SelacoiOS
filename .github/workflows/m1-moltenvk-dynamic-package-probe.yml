@@ -1,0 +1,43 @@
+name: Milestone 1 MoltenVK Dynamic Package Probe
+
+on:
+  push:
+    branches:
+      - "agent/**"
+    paths:
+      - "MOLTENVK_PIN.env"
+      - "scripts/m1-moltenvk-dynamic-package-probe.sh"
+      - ".github/workflows/m1-moltenvk-dynamic-package-probe.yml"
+  pull_request:
+    paths:
+      - "MOLTENVK_PIN.env"
+      - "scripts/m1-moltenvk-dynamic-package-probe.sh"
+      - ".github/workflows/m1-moltenvk-dynamic-package-probe.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe-dynamic-framework:
+    name: pinned dynamic MoltenVK arm64 iPhoneOS framework
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - name: Check out SelacoiOS
+        uses: actions/checkout@v4
+
+      - name: Validate probe
+        run: bash -n scripts/m1-moltenvk-dynamic-package-probe.sh
+
+      - name: Inspect pinned package
+        run: bash scripts/m1-moltenvk-dynamic-package-probe.sh
+
+      - name: Preserve package evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selaco-m1-moltenvk-dynamic-package-evidence
+          path: build/evidence/m1-moltenvk-dynamic-package
+          if-no-files-found: warn
+          retention-days: 14

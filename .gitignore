@@ -1,0 +1,35 @@
+# Proprietary Selaco game data must never be committed.
+*.ipk3
+**/Selaco.ipk3
+**/selaco.ipk3
+
+# Apple build outputs and signing material.
+DerivedData/
+build/
+*.xcarchive
+*.ipa
+*.dSYM/
+*.dSYM.zip
+*.mobileprovision
+*.p12
+
+# Local dependency and audit workspaces.
+.cache/
+.codebase-memory/
+.codebase-memory-worktree/
+_deps/
+Vendor/
+vendor/
+
+# Local user configuration and imported game data.
+UserData/
+Application Support/
+Documents/Selaco*
+
+# Editor and OS noise.
+__pycache__/
+.DS_Store
+*.swp
+*.swo
+.vscode/
+.idea/

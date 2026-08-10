@@ -1,0 +1,61 @@
+name: Milestone 0 ZMusic iOS Probe
+
+on:
+  push:
+    branches:
+      - "agent/**"
+    paths:
+      - "DEPENDENCY_TRIAL_PINS.env"
+      - "scripts/patch-zmusic-ios-m0.py"
+      - "overlays/zmusic-ios/music_fluidsynth_stub.cpp"
+      - "probes/zmusic-api-contract.cpp"
+      - "scripts/m0-zmusic-ios-probe.sh"
+      - ".github/workflows/m0-zmusic-ios-probe.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: m0-zmusic-ios-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  arm64-iphoneos-zmusic:
+    name: static ZMusic arm64 iPhoneOS without FluidSynth
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - name: Check out SelacoiOS
+        uses: actions/checkout@v4
+
+      - name: Validate probe inputs
+        run: |
+          bash -n scripts/m0-zmusic-ios-probe.sh
+          python3 -m py_compile scripts/patch-zmusic-ios-m0.py
+          test -s overlays/zmusic-ios/music_fluidsynth_stub.cpp
+          test -s probes/zmusic-api-contract.cpp
+
+      - name: Build ZMusic and compile API contract
+        run: bash scripts/m0-zmusic-ios-probe.sh
+
+      - name: Preserve ZMusic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selaco-m0-zmusic-ios-evidence
+          path: build/evidence/m0-zmusic-ios
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Preserve ZMusic static-library probe
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selaco-m0-zmusic-ios-arm64
+          path: |
+            build/artifacts/m0-zmusic-ios/libzmusic-ios-arm64.a
+            build/artifacts/m0-zmusic-ios/zmusic-api-contract.o
+            build/artifacts/zmusic-ios-arm64-probe.zip
+          if-no-files-found: error
+          retention-days: 14

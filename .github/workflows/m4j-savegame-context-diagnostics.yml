@@ -1,0 +1,122 @@
+name: Milestone 4J Save Slot Context and No-Write Diagnostics
+
+on:
+  push:
+    branches:
+      - "agent/**"
+    paths:
+      - "SOURCE_PIN.env"
+      - "DEPENDENCY_TRIAL_PINS.env"
+      - "MOLTENVK_PIN.env"
+      - "overlays/gzselaco-ios/**"
+      - "scripts/patch-gzselaco-*.py"
+      - "scripts/patch-zvulkan-engine-renderer-ios-m4b.py"
+      - "scripts/run-m3-local-asset-patcher.py"
+      - "scripts/m0-*.sh"
+      - "scripts/m4-title-menu-app-artifact-probe.sh"
+      - "scripts/m4i-savegame-api-compile-probe.sh"
+      - "scripts/m4i-savegame-api-diagnostics-app-artifact-probe.sh"
+      - "scripts/m4j-savegame-context-compile-probe.sh"
+      - "scripts/m4j-savegame-context-diagnostics-app-artifact-probe.sh"
+      - ".github/workflows/m4j-savegame-context-diagnostics.yml"
+  pull_request:
+    paths:
+      - "scripts/patch-gzselaco-savegame-context-diagnostics-ios-m4j.py"
+      - "scripts/m4j-savegame-context-compile-probe.sh"
+      - "scripts/m4j-savegame-context-diagnostics-app-artifact-probe.sh"
+      - ".github/workflows/m4j-savegame-context-diagnostics.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: m4j-savegame-context-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  arm64-iphoneos-savegame-context-diagnostics:
+    name: full-engine iOS save slot context and no-write diagnostic candidate
+    runs-on: macos-15
+    timeout-minutes: 120
+    steps:
+      - name: Check out SelacoiOS
+        uses: actions/checkout@v4
+
+      - name: Validate Milestone 4J inputs
+        run: |
+          bash -n scripts/m0-full-engine-configure-probe.sh
+          bash -n scripts/m0-full-engine-compile-probe.sh
+          bash -n scripts/m0-full-engine-app-artifact-probe.sh
+          bash -n scripts/m0-controlled-mktemp.sh
+          bash -n scripts/m4-title-menu-app-artifact-probe.sh
+          bash -n scripts/m4i-savegame-api-compile-probe.sh
+          bash -n scripts/m4i-savegame-api-diagnostics-app-artifact-probe.sh
+          bash -n scripts/m4j-savegame-context-compile-probe.sh
+          bash -n scripts/m4j-savegame-context-diagnostics-app-artifact-probe.sh
+          python3 -m py_compile scripts/patch-gzselaco-savegame-context-diagnostics-ios-m4j.py
+          python3 -m py_compile scripts/patch-gzselaco-savegame-api-diagnostics-ios-m4i.py
+          python3 -m py_compile scripts/patch-gzselaco-savegame-signatures-ios-m4h.py
+          command -v unzip
+          command -v shasum
+          command -v otool
+          command -v ditto
+          command -v zip
+
+      - name: Build and validate M4J diagnostic candidate
+        run: |
+          real_mktemp="$(command -v mktemp)"
+          shim_dir="${GITHUB_WORKSPACE}/build/m4-title-menu-shims"
+          controlled_root="${GITHUB_WORKSPACE}/build/work/m4-title-menu-app/tmp"
+          mkdir -p "${shim_dir}" "${controlled_root}"
+          cp scripts/m0-controlled-mktemp.sh "${shim_dir}/mktemp"
+          chmod +x "${shim_dir}/mktemp"
+          export SELACOIOS_REAL_MKTEMP="${real_mktemp}"
+          export SELACOIOS_CONTROLLED_TMP_ROOT="${controlled_root}"
+          export PATH="${shim_dir}:${PATH}"
+          bash scripts/m4j-savegame-context-diagnostics-app-artifact-probe.sh
+
+      - name: Record workflow identity
+        if: always()
+        run: |
+          mkdir -p build/evidence/m4-title-menu-app
+          {
+            echo "tested_head=${GITHUB_SHA}"
+            echo "workflow_run_id=${GITHUB_RUN_ID}"
+            echo "workflow_run_attempt=${GITHUB_RUN_ATTEMPT}"
+            echo "stable_bundle_identifier=am.arjunkl.selacoios.engineinit.m4"
+            echo "stable_files_container=SelacoiOS Engine Init"
+            echo "bundle_version=0.8.0(17)"
+            echo "runtime_diagnostic_file=Documents/Selaco/zscript-compile.log"
+            echo "diagnostic_scope=save_slot_context_and_no_write_DoSave_values"
+            echo "job_id_available_after_run=true"
+          } > build/evidence/m4-title-menu-app/workflow-identity.txt
+
+      - name: Preserve M4J diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selaco-m4j-savegame-context-diagnostics-evidence
+          path: |
+            build/evidence/m4-title-menu-app
+            build/evidence/m4j-savegame-context-compile
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Preserve updated Engine Init app
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selaco-m4j-savegame-context-diagnostics-unsigned-app
+          path: build/artifacts/m4-title-menu-app/Selaco-engine-init-probe-unsigned-app.zip
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Preserve updated Engine Init IPA
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selaco-m4j-savegame-context-diagnostics-unsigned-ipa
+          path: build/artifacts/m4-title-menu-app/Selaco-engine-init-probe-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 14

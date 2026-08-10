@@ -1,0 +1,149 @@
+name: Milestone 4F Retail Savegame Virtuals and Title Menu
+
+on:
+  push:
+    branches:
+      - "agent/**"
+    paths:
+      - "SOURCE_PIN.env"
+      - "DEPENDENCY_TRIAL_PINS.env"
+      - "MOLTENVK_PIN.env"
+      - "overlays/gzselaco-ios/i_runtime_bootstrap.mm"
+      - "overlays/gzselaco-ios/i_swapchain_probe.mm"
+      - "overlays/gzselaco-ios/i_engine_startup_stubs.mm"
+      - "overlays/gzselaco-ios/i_engine_init_probe.mm"
+      - "overlays/gzselaco-ios/i_engine_renderer_handoff.mm"
+      - "overlays/gzselaco-ios/i_title_menu_closure.cpp"
+      - "scripts/patch-gzselaco-ios-m0.py"
+      - "scripts/patch-gzselaco-vulkan-only-ios-m0.py"
+      - "scripts/patch-gzselaco-runtime-bootstrap-ios-m1.py"
+      - "scripts/patch-gzselaco-swapchain-ios-m2.py"
+      - "scripts/patch-gzselaco-local-asset-ios-m3.py"
+      - "scripts/run-m3-local-asset-patcher.py"
+      - "scripts/patch-gzselaco-engine-init-ios-m4.py"
+      - "scripts/patch-gzselaco-engine-renderer-ios-m4b.py"
+      - "scripts/patch-gzselaco-runtime-handoff-ios-m4b.py"
+      - "scripts/patch-gzselaco-title-menu-ios-m4b.py"
+      - "scripts/patch-zvulkan-engine-renderer-ios-m4b.py"
+      - "scripts/patch-gzselaco-title-menu-closure-ios-m4c.py"
+      - "scripts/patch-gzselaco-mach-class-registry-ios-m4d.py"
+      - "scripts/patch-gzselaco-zscript-diagnostics-ios-m4e.py"
+      - "scripts/patch-gzselaco-savegame-virtuals-ios-m4f.py"
+      - "scripts/m0-full-engine-configure-probe.sh"
+      - "scripts/m0-full-engine-compile-probe.sh"
+      - "scripts/m0-full-engine-app-artifact-probe.sh"
+      - "scripts/m0-controlled-mktemp.sh"
+      - "scripts/m4-title-menu-compile-probe.sh"
+      - "scripts/m4-title-menu-app-artifact-probe.sh"
+      - ".github/workflows/m4-title-menu.yml"
+  pull_request:
+    paths:
+      - "overlays/gzselaco-ios/i_title_menu_closure.cpp"
+      - "scripts/patch-gzselaco-title-menu-closure-ios-m4c.py"
+      - "scripts/patch-gzselaco-mach-class-registry-ios-m4d.py"
+      - "scripts/patch-gzselaco-zscript-diagnostics-ios-m4e.py"
+      - "scripts/patch-gzselaco-savegame-virtuals-ios-m4f.py"
+      - "scripts/m4-title-menu-compile-probe.sh"
+      - "scripts/m4-title-menu-app-artifact-probe.sh"
+      - ".github/workflows/m4-title-menu.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: m4-title-menu-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  arm64-iphoneos-title-menu:
+    name: full-engine iOS retail savegame compatibility and title menu candidate
+    runs-on: macos-15
+    timeout-minutes: 120
+    steps:
+      - name: Check out SelacoiOS
+        uses: actions/checkout@v4
+
+      - name: Validate Milestone 4F inputs
+        run: |
+          bash -n scripts/m0-full-engine-configure-probe.sh
+          bash -n scripts/m0-full-engine-compile-probe.sh
+          bash -n scripts/m0-full-engine-app-artifact-probe.sh
+          bash -n scripts/m0-controlled-mktemp.sh
+          bash -n scripts/m4-title-menu-compile-probe.sh
+          bash -n scripts/m4-title-menu-app-artifact-probe.sh
+          python3 -m py_compile scripts/patch-gzselaco-ios-m0.py
+          python3 -m py_compile scripts/patch-gzselaco-vulkan-only-ios-m0.py
+          python3 -m py_compile scripts/patch-gzselaco-runtime-bootstrap-ios-m1.py
+          python3 -m py_compile scripts/patch-gzselaco-swapchain-ios-m2.py
+          python3 -m py_compile scripts/patch-gzselaco-local-asset-ios-m3.py
+          python3 -m py_compile scripts/run-m3-local-asset-patcher.py
+          python3 -m py_compile scripts/patch-gzselaco-engine-init-ios-m4.py
+          python3 -m py_compile scripts/patch-gzselaco-engine-renderer-ios-m4b.py
+          python3 -m py_compile scripts/patch-gzselaco-runtime-handoff-ios-m4b.py
+          python3 -m py_compile scripts/patch-gzselaco-title-menu-ios-m4b.py
+          python3 -m py_compile scripts/patch-zvulkan-engine-renderer-ios-m4b.py
+          python3 -m py_compile scripts/patch-gzselaco-title-menu-closure-ios-m4c.py
+          python3 -m py_compile scripts/patch-gzselaco-mach-class-registry-ios-m4d.py
+          python3 -m py_compile scripts/patch-gzselaco-zscript-diagnostics-ios-m4e.py
+          python3 -m py_compile scripts/patch-gzselaco-savegame-virtuals-ios-m4f.py
+          test -s overlays/gzselaco-ios/i_title_menu_closure.cpp
+          command -v unzip
+          command -v shasum
+          command -v otool
+
+      - name: Build and validate M4F retail savegame title menu candidate
+        run: |
+          real_mktemp="$(command -v mktemp)"
+          shim_dir="${GITHUB_WORKSPACE}/build/m4-title-menu-shims"
+          controlled_root="${GITHUB_WORKSPACE}/build/work/m4-title-menu-app/tmp"
+          mkdir -p "${shim_dir}" "${controlled_root}"
+          cp scripts/m0-controlled-mktemp.sh "${shim_dir}/mktemp"
+          chmod +x "${shim_dir}/mktemp"
+          export SELACOIOS_REAL_MKTEMP="${real_mktemp}"
+          export SELACOIOS_CONTROLLED_TMP_ROOT="${controlled_root}"
+          export PATH="${shim_dir}:${PATH}"
+          bash scripts/m4-title-menu-app-artifact-probe.sh
+
+      - name: Record workflow identity
+        if: always()
+        run: |
+          mkdir -p build/evidence/m4-title-menu-app
+          {
+            echo "tested_head=${GITHUB_SHA}"
+            echo "workflow_run_id=${GITHUB_RUN_ID}"
+            echo "workflow_run_attempt=${GITHUB_RUN_ATTEMPT}"
+            echo "stable_bundle_identifier=am.arjunkl.selacoios.engineinit.m4"
+            echo "stable_files_container=SelacoiOS Engine Init"
+            echo "bundle_version=0.7.6(13)"
+            echo "runtime_diagnostic_file=Documents/Selaco/zscript-compile.log"
+            echo "retail_savegame_virtuals=GetSavegameFlags,GetSavegameTitle"
+            echo "job_id_available_after_run=true"
+          } > build/evidence/m4-title-menu-app/workflow-identity.txt
+
+      - name: Preserve retail savegame title menu evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selaco-m4f-retail-savegame-evidence
+          path: build/evidence/m4-title-menu-app
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Preserve updated Engine Init app
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selaco-m4f-retail-savegame-unsigned-app
+          path: build/artifacts/m4-title-menu-app/Selaco-engine-init-probe-unsigned-app.zip
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Preserve updated Engine Init IPA
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selaco-m4f-retail-savegame-unsigned-ipa
+          path: build/artifacts/m4-title-menu-app/Selaco-engine-init-probe-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 14
